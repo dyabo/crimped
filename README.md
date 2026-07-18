@@ -28,17 +28,25 @@ use a Garmin-style wearable, recovery-metric columns stay out of your way.
 
 ## Install & run
 
+Python 3.10+ required. Install into a virtual environment — modern Python
+(Homebrew, Debian, etc.) blocks `pip install` into the system interpreter
+(PEP 668 “externally-managed-environment”), so a venv is the reliable path:
+
 ```bash
-# Python 3.10+ required
-pip install .          # installs the `climbro` command
-# or: pip install -r requirements.txt
+python3 -m venv .venv          # create an isolated environment
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install .                  # installs the `climbro` command into the venv
 
 # interactive survey:
-climbro                # or: python -m climbro
+climbro                        # or: python -m climbro
 
 # or build from a config (see config.example.yaml):
 climbro --config config.example.yaml --out my_plan.xlsx
 ```
+
+Run `deactivate` to leave the venv; `source .venv/bin/activate` to re-enter it
+in a new shell. Prefer a system-wide command? Use [pipx](https://pipx.pypa.io):
+`pipx install .` puts `climbro` on your PATH in its own managed environment.
 
 Open the result, start on the **Dashboard**, log each session in **Journal**, and do
 one **Week** check-in (weight + a few recovery numbers) weekly. Everything else is
