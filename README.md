@@ -27,7 +27,16 @@ Grades display in **V or Font** (normalized to V internally). Units **kg or lb**
 A **cut** (weight loss) block is optional; so are the mobility block and a weekly **lead/rope session** (replaces a volume slot in base phases, serves as power-endurance near the peak). If you don't
 use a Garmin-style wearable, recovery-metric columns stay out of your way.
 
-## Install & run
+## Use it in your browser (no install)
+
+The easiest way — nothing to install. Open the **[web app](web/)**: a static page that
+runs the real climbro engine in your browser via Pyodide (Python→WebAssembly). Answer
+the survey, click once, and the `.xlsx` downloads locally — **nothing is uploaded**, so
+your bodyweight/health answers never leave your device. Works on desktop and phone, in
+English or Russian. Host it free on GitHub Pages (see [web/README.md](web/README.md)) or
+run it locally with `python3 -m http.server` and open `web/index.html`.
+
+## Install & run (CLI)
 
 Python 3.10+ required. Install into a virtual environment — modern Python
 (Homebrew, Debian, etc.) blocks `pip install` into the system interpreter

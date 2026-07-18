@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>climbro — build your climbing plan</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#1f2b3a; --muted:#5b6b7d; --line:#e2e8f0;
+    --navy:#1F3A5F; --blue:#2E6DA4; --accent:#2E6DA4; --ok:#2f855a; --err:#c53030;
+    --shadow:0 1px 3px rgba(16,32,60,.08),0 8px 24px rgba(16,32,60,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1620; --card:#161f2b; --ink:#e7edf5; --muted:#9fb0c3; --line:#26313f;
+           --navy:#24435f; --blue:#4d8bd0; --accent:#4d8bd0; --shadow:0 1px 3px rgba(0,0,0,.4); }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:720px;margin:0 auto;padding:24px 16px 64px}
+  header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:8px 0 18px}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand h1{font-size:26px;margin:0;letter-spacing:-.5px}
+  .brand .v{color:var(--muted);font-size:13px}
+  .lang{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .lang button{border:0;background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:600}
+  .lang button.on{background:var(--accent);color:#fff}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px 20px 8px}
+  .field{padding:12px 0;border-top:1px solid var(--line)}
+  .field:first-child{border-top:0}
+  .field label.q{display:block;font-weight:600;margin-bottom:7px}
+  .field .ex{color:var(--muted);font-weight:400;font-size:13px}
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  .req{color:var(--err);margin-left:3px}
+  .days{display:flex;flex-wrap:wrap;gap:8px}
+  .days label,.boolrow label{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);
+    padding:8px 12px;border-radius:9px;cursor:pointer;user-select:none}
+  .days input,.boolrow input{accent-color:var(--accent);width:16px;height:16px}
+  .boolrow{display:flex;gap:8px}
+  .actions{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 4px;margin-top:14px}
+  button.go{width:100%;border:0;border-radius:11px;background:var(--accent);color:#fff;font-size:16px;font-weight:700;
+    padding:14px;cursor:pointer}
+  button.go:disabled{opacity:.55;cursor:progress}
+  .msg{margin:14px 0 0;padding:12px 14px;border-radius:10px;font-size:14px;display:none}
+  .msg.err{display:block;background:rgba(197,48,48,.1);border:1px solid rgba(197,48,48,.35);color:var(--err)}
+  .msg.ok{display:block;background:rgba(47,133,90,.12);border:1px solid rgba(47,133,90,.35);color:var(--ok)}
+  .msg.warn{display:block;background:rgba(214,158,46,.14);border:1px solid rgba(214,158,46,.4);color:#9a6b00}
+  .msg ul{margin:6px 0 0;padding-left:18px}
+  #boot{text-align:center;color:var(--muted);padding:30px 0}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+    display:inline-block;animation:sp 1s linear infinite;vertical-align:-6px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:22px}
+  footer a{color:var(--accent)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>climbro</h1><span class="v">v0.1</span></div>
+    <div class="lang" id="lang">
+      <button data-l="en" class="on">EN</button>
+      <button data-l="ru">RU</button>
+    </div>
+  </header>
+  <p class="sub" id="sub">Answer a few questions and download your personalized climbing training tracker. Everything runs in your browser — nothing is uploaded.</p>
+
+  <div id="boot" class="card"><span class="spin"></span><span id="bootmsg">Loading the engine…</span></div>
+
+  <form id="form" class="card hidden" autocomplete="off"></form>
+  <div class="actions hidden" id="actions">
+    <button class="go" id="go">Build my plan</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <footer>
+    Open source (MIT). Not medical or coaching advice — see the project DISCLAIMER.
+    Your answers stay on this device.
+  </footer>
+</div>
+
+<script type="module">
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
+
+// ---- static UI strings (the survey itself is localized by Python) ----
+const UI = {
+  en:{ sub:"Answer a few questions and download your personalized climbing training tracker. Everything runs in your browser — nothing is uploaded.",
+       go:"Build my plan", building:"Building…", boot:"Loading the engine…",
+       ready:"✓ Your plan is ready — check your downloads.", fix:"Please fix:", heads:"Heads up:", yes:"Yes", no:"No",
+       required:"Please fill the required fields (marked *)." },
+  ru:{ sub:"Ответь на несколько вопросов и скачай персональный трекер тренировок. Всё считается прямо в браузере — ничего не загружается на сервер.",
+       go:"Собрать план", building:"Собираю…", boot:"Загружаю движок…",
+       ready:"✓ План готов — проверь загрузки.", fix:"Исправь, пожалуйста:", heads:"Обрати внимание:", yes:"Да", no:"Нет",
+       required:"Заполни обязательные поля (со звёздочкой *)." },
+};
+// booleans that make sense pre-checked
+const BOOL_DEFAULT = {"equipment.has_fingerboard":true,"equipment.has_gym":true,"options.include_nutrition":true};
+
+let pyodide, climbroWeb, lang="en";
+const answers = {"profile.units":"kg","climbing.grade_scale":"V","equipment.wearable":"none", ...BOOL_DEFAULT};
+
+const $ = s=>document.querySelector(s);
+const PKG = new URL("../climbro/", location.href);
+const MODULES = [
+  "__init__.py","i18n.py","schema.py","norms.py","periodization.py","engine.py","web.py",
+  "render/__init__.py","render/style.py","render/sheets_plan.py","render/sheets_schedule.py",
+  "render/sheets_tracking.py","render/sheets_dashboard.py","render/sheets_static.py",
+];
+
+async function boot(){
+  pyodide = await loadPyodide();
+  // openpyxl isn't in the Pyodide distribution, so install the vendored pure-python
+  // wheels from our own origin (works offline / on GitHub Pages, no PyPI needed).
+  await pyodide.loadPackage("micropip");
+  const micropip = pyodide.pyimport("micropip");
+  const VENDOR = new URL("./vendor/", location.href).href;
+  await micropip.install([
+    VENDOR + "et_xmlfile-2.0.0-py3-none-any.whl",
+    VENDOR + "openpyxl-3.1.5-py2.py3-none-any.whl",
+  ]);
+  // fetch the pure-python package straight from the repo and mount it at an
+  // absolute path (Emscripten FS resolves relative paths inconsistently).
+  const ROOT = "/pkg";
+  pyodide.FS.mkdirTree(ROOT + "/climbro/render");
+  await Promise.all(MODULES.map(async m=>{
+    const txt = await (await fetch(PKG+m)).text();
+    pyodide.FS.writeFile(ROOT + "/climbro/" + m, txt);
+  }));
+  pyodide.runPython(`import sys; sys.path.insert(0, '${ROOT}')`);
+  climbroWeb = pyodide.pyimport("climbro.web");
+  $("#boot").classList.add("hidden");
+  $("#form").classList.remove("hidden");
+  $("#actions").classList.remove("hidden");
+  render();
+}
+
+function survey(){
+  const py = climbroWeb.survey_for(lang);
+  const js = py.toJs({dict_converter: Object.fromEntries});
+  py.destroy();
+  return js;
+}
+
+function render(){
+  const t = UI[lang];
+  $("#sub").textContent = t.sub;
+  $("#go").textContent = t.go;
+  $("#bootmsg").textContent = t.boot;
+  const form = $("#form"); form.innerHTML="";
+  for(const f of survey()){
+    const row = document.createElement("div");
+    row.className="field"; row.dataset.key=f.key;
+    if(f.depends_on) row.dataset.depends=f.depends_on;
+    const star = f.optional ? "" : `<span class="req">*</span>`;
+    const ex = f.example ? ` <span class="ex">— ${t_egLabel()} ${escapeHtml(f.example)}</span>` : "";
+    let control="";
+    const val = answers[f.key];
+    if(f.kind==="choice"){
+      const opts = [`<option value="">—</option>`].concat(
+        f.choices.map(c=>`<option value="${escapeHtml(c.value)}" ${val===c.value?"selected":""}>${escapeHtml(c.label)}</option>`));
+      control = `<select data-k="${f.key}">${opts.join("")}</select>`;
+    } else if(f.kind==="bool"){
+      const on = val===true;
+      control = `<div class="boolrow"><label><input type="checkbox" data-k="${f.key}" ${on?"checked":""}> <span>${t.yes}</span></label></div>`;
+    } else if(f.kind==="weekdays"){
+      const set = new Set(Array.isArray(val)?val:[]);
+      control = `<div class="days">`+ f.choices.map(c=>
+        `<label><input type="checkbox" data-wd="${f.key}" value="${c.value}" ${set.has(c.value)?"checked":""}> ${escapeHtml(c.label)}</label>`).join("") + `</div>`;
+    } else {
+      const type = f.kind==="date" ? "date" : (f.kind==="int"||f.kind==="float" ? "number" : "text");
+      const step = f.kind==="float" ? ` step="0.1"` : "";
+      control = `<input type="${type}"${step} data-k="${f.key}" value="${val!=null&&typeof val!=="object"?escapeHtml(String(val)):""}">`;
+    }
+    row.innerHTML = `<label class="q">${escapeHtml(f.prompt)}${star}${ex}</label>${control}`;
+    form.appendChild(row);
+  }
+  // wire inputs
+  form.querySelectorAll("[data-k]").forEach(el=>{
+    el.addEventListener("change",()=>{
+      const k=el.dataset.k;
+      if(el.type==="checkbox") answers[k]=el.checked;
+      else answers[k]=el.value;
+      updateDeps();
+    });
+  });
+  form.querySelectorAll("[data-wd]").forEach(el=>{
+    el.addEventListener("change",()=>{
+      const k=el.dataset.wd;
+      const picked=[...form.querySelectorAll(`[data-wd="${k}"]:checked`)].map(x=>x.value);
+      answers[k]=picked;
+    });
+  });
+  updateDeps();
+}
+function t_egLabel(){ return lang==="ru" ? "напр." : "e.g."; }
+function updateDeps(){
+  document.querySelectorAll(".field[data-depends]").forEach(row=>{
+    const dep=row.dataset.depends;
+    row.classList.toggle("hidden", !answers[dep]);
+  });
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function submit(){
+  const t = UI[lang], go=$("#go"), msg=$("#msg");
+  msg.className="msg";
+  // clean payload: drop hidden dependents
+  const payload={...answers};
+  document.querySelectorAll(".field[data-depends].hidden").forEach(r=>delete payload[r.dataset.key]);
+  go.disabled=true; go.textContent=t.building;
+  try{
+    const pyAns=pyodide.toPy(payload);
+    const resPy=climbroWeb.generate(pyAns, lang);
+    const res=resPy.toJs({dict_converter:Object.fromEntries});
+    pyAns.destroy(); resPy.destroy();
+    if(!res.ok){
+      msg.className="msg err";
+      msg.innerHTML=`<strong>${t.fix}</strong><ul>${res.errors.map(e=>`<li>${escapeHtml(e)}</li>`).join("")}</ul>`;
+    } else {
+      const bytes=Uint8Array.from(atob(res.xlsx_b64),c=>c.charCodeAt(0));
+      const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=res.filename;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+      let html=`<strong>${t.ready}</strong>`;
+      if(res.warnings.length) html+=`<div style="margin-top:6px"><em>${t.heads}</em><ul>${res.warnings.map(w=>`<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`;
+      msg.className="msg ok"; msg.innerHTML=html;
+    }
+  }catch(err){
+    msg.className="msg err"; msg.textContent=String(err);
+  }finally{
+    go.disabled=false; go.textContent=t.go;
+  }
+}
+
+$("#lang").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-l]"); if(!b) return;
+  lang=b.dataset.l;
+  [...$("#lang").children].forEach(x=>x.classList.toggle("on",x===b));
+  document.documentElement.lang=lang;
+  render();
+});
+$("#go").addEventListener("click",submit);
+boot().catch(e=>{ console.error("boot failed:",e); $("#bootmsg").textContent =
+  (lang==="ru" ? "Не удалось загрузить движок — обнови страницу." : "Couldn't load the engine — please refresh."); });
+</script>
+</body>
+</html>

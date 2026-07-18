@@ -22,7 +22,8 @@ from .sheets_dashboard import build_dashboard, build_charts
 from .sheets_static import build_mobility, build_nutrition, build_recovery, build_glossary, build_howto
 
 
-def render(plan: Plan, path: str) -> str:
+def build_workbook(plan: Plan) -> Workbook:
+    """Assemble the whole workbook in memory (no I/O). Shared by render/render_bytes."""
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -55,10 +56,23 @@ def render(plan: Plan, path: str) -> str:
         build_nutrition(wb.create_sheet("Nutrition"), plan, wr1, wr2)
     build_recovery(wb.create_sheet("Recovery"), plan)
     build_glossary(wb.create_sheet("Glossary"), plan)
+    return wb
 
+
+def render(plan: Plan, path: str) -> str:
+    """Write the workbook to `path` and return the path (CLI/file use)."""
+    wb = build_workbook(plan)
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     wb.save(path)
     return path
+
+
+def render_bytes(plan: Plan) -> bytes:
+    """Return the workbook as .xlsx bytes (web/browser download, tests — no disk I/O)."""
+    from io import BytesIO
+    buf = BytesIO()
+    build_workbook(plan).save(buf)
+    return buf.getvalue()
 
 
 def _safe(title: str) -> str:
