@@ -232,17 +232,24 @@ def from_kg(value_kg: float, units: Units) -> float:
 # --------------------------------------------------------------------------- #
 # Build from a plain dict (what YAML / the CLI produces)
 # --------------------------------------------------------------------------- #
+def _opt_num(x, cast):
+    """Coerce an optional numeric field; '' / None -> None. Front-ends (web forms,
+    YAML) can hand us strings, so normalize here rather than trust the caller."""
+    return None if x is None or x == "" else cast(x)
+
+
 def from_dict(d: dict) -> Config:
     p = d.get("profile", {})
     c = d.get("climbing", {})
     g = d.get("goal", {})
+    w = d.get("weight", {})
     scale = GradeScale(c.get("grade_scale", "V"))
     return Config(
         profile=Profile(
             sex=Sex(p["sex"]),
             bodyweight=float(p["bodyweight"]),
             units=Units(p.get("units", "kg")),
-            age=p.get("age"),
+            age=_opt_num(p.get("age"), lambda v: int(float(v))),
             name=p.get("name"),
         ),
         climbing=Climbing(
@@ -250,8 +257,8 @@ def from_dict(d: dict) -> Config:
             target_grade=parse_grade(scale, c["target_grade"]),
             grade_scale=scale,
             years_climbing=float(c.get("years_climbing", 1.0)),
-            max_hang_added=c.get("max_hang_added"),
-            max_pullup_added=c.get("max_pullup_added"),
+            max_hang_added=_opt_num(c.get("max_hang_added"), float),
+            max_pullup_added=_opt_num(c.get("max_pullup_added"), float),
         ),
         goal=GoalSpec(
             goal=Goal(g["goal"]),
@@ -259,9 +266,9 @@ def from_dict(d: dict) -> Config:
             start_date=_as_date(g["start_date"]) if g.get("start_date") else date.today(),
         ),
         weight=Weight(
-            enabled=bool(d.get("weight", {}).get("enabled", False)),
-            target_bodyweight=d.get("weight", {}).get("target_bodyweight"),
-            max_rate_pct=float(d.get("weight", {}).get("max_rate_pct", 0.7)),
+            enabled=bool(w.get("enabled", False)),
+            target_bodyweight=_opt_num(w.get("target_bodyweight"), float),
+            max_rate_pct=float(w.get("max_rate_pct", 0.7)),
         ),
         availability=Availability(
             days_per_week=int(d.get("availability", {}).get("days_per_week", 4)),
