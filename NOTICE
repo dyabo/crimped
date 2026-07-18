@@ -1,0 +1,15 @@
+climbro
+Copyright (c) 2026 Bo (Bogdan Dyachok)
+
+Licensed under the MIT License (see LICENSE).
+
+Runtime dependencies (each under its own license):
+  - openpyxl  — MIT License
+  - PyYAML    — MIT License
+
+Training methodology references (used as factual guidance, not copied text):
+  - Lattice Training — finger-strength / grade benchmarking
+  - Eva Lopez — hangboard protocols (MAW / MED)
+  - Tyler Nelson (Camp4 Human Performance) — active recruitment / RFD
+  - IOC consensus statements — Relative Energy Deficiency in Sport (RED-S)
+  - Volker Schoffl et al. — climbing finger-pulley injury research

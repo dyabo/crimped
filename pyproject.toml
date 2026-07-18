@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "climbro"
+version = "0.1.0"
+description = "Generator of a personalized climbing training tracker (xlsx): periodized plan, day-by-day schedule, sRPE/ACWR analytics, finger-strength norms."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Bo (Bogdan Dyachok)"}]
+dependencies = ["openpyxl>=3.1", "PyYAML>=6.0"]
+
+[project.scripts]
+climbro = "climbro.cli:main"
+
+[tool.setuptools]
+packages = ["climbro", "climbro.render"]
