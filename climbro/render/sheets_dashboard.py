@@ -132,31 +132,75 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
 
 
 def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
+    import math
     ws.sheet_view.showGridLines = False
-    ws.merge_cells("A1:J1"); h1(ws["A1"], "Charts (populate as you log)")
+    ws.merge_cells("A1:S1"); h1(ws["A1"], "Charts (populate as you log)")
     ws.row_dimensions[1].height = 24
-    week = None
-    for s in ws.parent.worksheets:
-        if s.title == "Week":
-            week = s
-            break
+    week = next((s for s in ws.parent.worksheets if s.title == "Week"), None)
     if week is None:
         return
     hdr_row = 4
+    cfg = plan.cfg
+    m = plan.metrics
 
-    def line(title, cols, anchor):
-        ch = LineChart(); ch.title = title; ch.height = 7.5; ch.width = 16; ch.style = 2
-        data = Reference(week, min_col=cols[0], max_col=cols[-1], min_row=hdr_row, max_row=wr2)
-        ch.add_data(data, titles_from_data=True)
-        cats = Reference(week, min_col=1, min_row=wr1, max_row=wr2)
-        ch.set_categories(cats)
-        ch.x_axis.title = "Week"; ch.x_axis.delete = False; ch.y_axis.delete = False
+    def line(title, cols, anchor, ymin=None, ymax=None, yfmt=None):
+        """One line chart; each col in `cols` becomes its own named series.
+        ymin/ymax pin the y-axis to the plan's real range (no more 0-based squash)."""
+        ch = LineChart(); ch.title = title; ch.height = 7.5; ch.width = 14; ch.style = 2
+        for c in cols:
+            ref = Reference(week, min_col=c, max_col=c, min_row=hdr_row, max_row=wr2)
+            ch.add_data(ref, titles_from_data=True)
+        ch.set_categories(Reference(week, min_col=1, min_row=wr1, max_row=wr2))
+        ch.x_axis.title = "Week"
+        ch.x_axis.delete = False; ch.y_axis.delete = False
+        if ymin is not None:
+            ch.y_axis.scaling.min = ymin
+        if ymax is not None:
+            ch.y_axis.scaling.max = ymax
+        if yfmt is not None:
+            ch.y_axis.numFmt = yfmt
         ws.add_chart(ch, anchor)
 
-    has_cut = plan.cfg.weight.enabled
-    line("Weight: actual vs plan", [5, 6] if has_cut else [5, 5], "A3")
-    line("Fingers %BW", [20, 20], "A18")
-    line("Weekly load (sRPE)", [17, 17], "A33")
-    line("ACWR — overload risk", [19, 19], "A48")
-    note(ws.cell(64, 1), "Lines appear as Week fills in. Keep ACWR in 0.8–1.3.")
-    ws.merge_cells("A64:J64")
+    # ----- data-driven axis bounds (known at generation time) -----
+    # Weight: tight band around the planned start→target range, not a 0-based axis.
+    start = cfg.profile.bodyweight
+    has_cut = cfg.weight.enabled and cfg.weight.target_bodyweight is not None
+    target = cfg.weight.target_bodyweight if has_cut else start
+    w_lo, w_hi = min(start, target), max(start, target)
+    w_min, w_max = math.floor(w_lo - 4), math.ceil(w_hi + 4)
+
+    # Fingers %BW: focus on [current strength .. target norm] with a little padding.
+    norm = plan.norm_target_pct
+    cur_pct = (cfg.bw_kg + cfg.max_hang_kg) / cfg.bw_kg if cfg.max_hang_kg is not None else None
+    f_lo = min(cur_pct, norm) if cur_pct is not None else norm - 0.4
+    f_min = max(0.5, math.floor((f_lo - 0.1) * 10) / 10)
+    f_max = math.ceil((norm + 0.1) * 10) / 10
+
+    # Grade: around current → target.
+    g_min, g_max = max(0, plan.current_v - 2), plan.target_v + 2
+    # Sessions: 0 → a bit above the busiest planned week.
+    s_max = max((w.planned_session_count for w in plan.weeks), default=6) + 1
+
+    # ----- charts (2-up: left column A, right column K) -----
+    line("Weight: actual vs plan" if has_cut else "Weight",
+         [5, 6] if has_cut else [5], "A3", w_min, w_max)
+    line(f"Fingers %BW (target {norm*100:.0f}%)", [20], "K3", f_min, f_max, yfmt="0%")
+
+    line("Best grade / week (V)", [22], "A18", g_min, g_max)
+    line("Weekly load: acute vs chronic (sRPE)", [17, 18], "K18", 0)
+
+    line("ACWR — overload risk", [19], "A33", 0, 2)
+    line("Sessions: planned vs done", [27, 16], "K33", 0, s_max)
+
+    line("Fatigue & stress (1-10)", [15, 26], "A48", 0, 10)
+    line("Sleep (h / night)", [14], "K48", 0, 12)
+
+    line("Max finger pain (0-3)", [23], "A63", 0, 3)
+    if m["hrv"] or m["resting_hr"]:
+        hrv_cols = ([10] if m["hrv"] else []) + ([12] if m["resting_hr"] else [])
+        line("HRV & resting HR", hrv_cols, "K63")   # auto y-axis (device-dependent range)
+
+    note(ws.cell(80, 1),
+         "Lines appear as Week fills in. Axes are pre-scaled to your plan's range; "
+         "keep ACWR in the 0.8–1.3 band and finger pain at 0.")
+    ws.merge_cells("A80:S80")
