@@ -39,11 +39,11 @@ def render(plan: Plan, path: str) -> str:
     build_setup(wb.create_sheet("Setup"), plan)
     build_cycle(wb.create_sheet("Cycle"), plan)
     for title, weeks in schedule_sheets(plan):
-        build_schedule(wb.create_sheet(_safe(title)), weeks)
+        build_schedule(wb.create_sheet(_safe(title)), weeks, title, plan.cfg.language)
 
     build_journal(wb.create_sheet("Journal"), plan, jr1, jr2)
     build_week(wb.create_sheet("Week"), plan, jr1, jr2)
-    plan._inj_active_formula = build_injuries(wb.create_sheet("Injuries"))
+    plan._inj_active_formula = build_injuries(wb.create_sheet("Injuries"), plan.cfg.language)
 
     # now that Week/Injuries exist, fill dashboard + charts
     build_dashboard(ws_dash, plan, wr1, wr2, jr2)

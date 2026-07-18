@@ -22,6 +22,7 @@ You answer a short survey (or hand a YAML config). climbro:
    nutrition sheets and an injury log.
 
 Goals supported in v1: **`send_grade`** and **`competition`**.
+**Language: English or Russian** — it's the first question in the survey (or `language: en|ru` in the config) and localizes both the wizard and the entire generated workbook.
 Grades display in **V or Font** (normalized to V internally). Units **kg or lb** — the workbook displays and accepts your unit everywhere; the engine computes in kg internally.
 A **cut** (weight loss) block is optional; so are the mobility block and a weekly **lead/rope session** (replaces a volume slot in base phases, serves as power-endurance near the peak). If you don't
 use a Garmin-style wearable, recovery-metric columns stay out of your way.
@@ -58,6 +59,7 @@ computed.
 climbro/                     # repo root: pyproject, README, LICENSE, config.example.yaml
   climbro/                   # the package
     schema.py              # config contract + survey field spec + validation
+    i18n.py                # language enum + EN/RU translation catalog
     norms.py               # finger-strength norms (V → %BW, by sex)
     periodization.py       # phase templates + scaling to the real horizon
     engine.py              # day-by-day session allocation + weight curve + norms

@@ -3,6 +3,8 @@
 # Grades are written in your chosen display scale; internally they normalize to V.
 # Weights are in `units` (kg or lb). Everything else: see comments.
 
+language: en               # en | ru — language of the wizard AND the generated workbook
+
 profile:
   name: Bo                 # optional, only personalizes the file
   sex: male                # male | female  (required: strength norms differ)

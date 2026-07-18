@@ -20,6 +20,7 @@ Session allocation across weekdays + the weight curve + norms live in engine.py.
 from __future__ import annotations
 from dataclasses import dataclass
 from .schema import Config, Goal
+from .i18n import translator
 
 
 # --------------------------------------------------------------------------- #
@@ -95,45 +96,45 @@ def _emphasis_profile(cfg: Config) -> dict:
 # --------------------------------------------------------------------------- #
 # Base templates (ideal week counts) — get scaled to the real horizon
 # --------------------------------------------------------------------------- #
-def _ideal_phases(cfg: Config, emph: dict) -> list[Phase]:
+def _ideal_phases(cfg: Config, emph: dict, t) -> list[Phase]:
     cut = cfg.weight.enabled
     is_comp = cfg.goal.goal == Goal.COMPETITION
 
     phases: list[Phase] = [
-        Phase("assess", "Assess & baseline", 2,
-              "Tests (max hang, pull-ups, body comp) + baseline HRV/weight. Maintenance eating.",
+        Phase("assess", t("Assess & baseline"), 2,
+              t("Tests (max hang, pull-ups, body comp) + baseline HRV/weight. Maintenance eating."),
               in_deficit=False, deload_last=False, emphasis="mixed"),
-        Phase("base", "Base — max hangs + technique", 8,
-              "Max-hang finger strength + high technique volume." + (" Deficit starts." if cut else ""),
+        Phase("base", t("Base — max hangs + technique"), 8,
+              t("Max-hang finger strength + high technique volume.") + (t(" Deficit starts.") if cut else ""),
               in_deficit=cut, deload_last=True, emphasis="technique" if emph["label"] != "mixed" else "mixed"),
-        Phase("contact", "Contact strength", 8,
-              "Active recruitment pulls + strength-on-the-wall; limit bouldering 2x." + (" Deficit continues." if cut else ""),
+        Phase("contact", t("Contact strength"), 8,
+              t("Active recruitment pulls + strength-on-the-wall; limit bouldering 2x.") + (t(" Deficit continues.") if cut else ""),
               in_deficit=cut, deload_last=True, emphasis="strength"),
     ]
 
     # bridge: exit the deficit / build power; introduce power-endurance
     phases.append(
-        Phase("bridge", "Bridge — exit deficit & build power" if cut else "Bridge — build power", 4,
-              ("Return to maintenance eating; power rises; introduce power-endurance."
-               if cut else "Raise intensity; introduce power-endurance."),
+        Phase("bridge", t("Bridge — exit deficit & build power") if cut else t("Bridge — build power"), 4,
+              (t("Return to maintenance eating; power rises; introduce power-endurance.")
+               if cut else t("Raise intensity; introduce power-endurance.")),
               in_deficit=False, deload_last=True, emphasis="power")
     )
 
     # peak: protected
     phases.append(
-        Phase("peak", "Peak — power & RFD", 5,
-              ("Peak contact strength, power and RFD on light bodyweight." if cut
-               else "Peak contact strength, power and RFD.")
-              + (" Comp-style simulations." if is_comp else ""),
+        Phase("peak", t("Peak — power & RFD"), 5,
+              (t("Peak contact strength, power and RFD on light bodyweight.") if cut
+               else t("Peak contact strength, power and RFD."))
+              + (t(" Comp-style simulations.") if is_comp else ""),
               in_deficit=False, deload_last=False, emphasis="comp" if is_comp else "power")
     )
 
     # taper: fixed, protected
     taper_weeks = 2 if is_comp else 1
     phases.append(
-        Phase("taper", "Taper", taper_weeks,
-              ("Volume -50%, intensity held; carb-load into the comp." if is_comp
-               else "Volume -50%, intensity held; arrive fresh for the send window."),
+        Phase("taper", t("Taper"), taper_weeks,
+              (t("Volume -50%, intensity held; carb-load into the comp.") if is_comp
+               else t("Volume -50%, intensity held; arrive fresh for the send window.")),
               in_deficit=False, deload_last=False, emphasis="comp" if is_comp else "power")
     )
     return phases
@@ -218,8 +219,9 @@ def _scale(phases: list[Phase], target_weeks: int, shrink_order: list[str]) -> t
 # Public entry point
 # --------------------------------------------------------------------------- #
 def build_macrocycle(cfg: Config) -> Macrocycle:
+    t = translator(cfg.language)
     emph = _emphasis_profile(cfg)
-    phases = _ideal_phases(cfg, emph)
+    phases = _ideal_phases(cfg, emph, t)
     target = max(sum(_MIN_WEEKS[p.key] for p in phases), cfg.total_weeks)
     # technique-limited athletes (newbie or strong-base/low-mileage) keep base longest
     shrink_order = _SHRINK_TECHNIQUE if emph["label"] == "technique" else _SHRINK_DEFAULT

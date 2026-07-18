@@ -4,7 +4,8 @@ climbro — config schema (v1)
 Single source of truth for everything the survey collects and the engine reads.
 
 Design rules agreed for v1:
-- English only.
+- Language: English or Russian (see i18n.py). `language` drives both the survey
+  and the generated workbook; the engine still keys off stable English identifiers.
 - Goals coded for v1: SEND_GRADE, COMPETITION. (Others reserved, NOT implemented.)
 - Grades: user may pick display scale (V or Font), but everything is normalized
   to an integer V-grade internally for simplicity.
@@ -27,6 +28,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import date
 from enum import Enum
 import math
+
+from .i18n import Language, translator
 
 
 # --------------------------------------------------------------------------- #
@@ -173,6 +176,7 @@ class Config:
     availability: Availability = field(default_factory=Availability)
     equipment: Equipment = field(default_factory=Equipment)
     options: Options = field(default_factory=Options)
+    language: Language = Language.EN   # UI + workbook language (en | ru)
 
     # ----- derived helpers (no training logic, just unit/scale normalization) -----
     @property
@@ -275,6 +279,7 @@ def from_dict(d: dict) -> Config:
             include_lead=bool(d.get("options", {}).get("include_lead", False)),
             output_path=d.get("options", {}).get("output_path"),
         ),
+        language=Language(d.get("language", "en")),
     )
 
 
@@ -290,71 +295,70 @@ def _as_date(x) -> date:
 def validate(cfg: Config) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
+    t = translator(cfg.language)
 
     # weights
     if cfg.profile.bodyweight <= 0:
-        errors.append("profile.bodyweight must be positive.")
+        errors.append(t("profile.bodyweight must be positive."))
     if cfg.profile.age is not None and not (10 <= cfg.profile.age <= 100):
-        warnings.append("profile.age looks unusual; double-check.")
+        warnings.append(t("profile.age looks unusual; double-check."))
 
     # grades
     if cfg.climbing.target_grade < cfg.climbing.current_grade:
-        errors.append("climbing.target_grade is below current_grade — pick a target at or above your current level.")
+        errors.append(t("climbing.target_grade is below current_grade — pick a target at or above your current level."))
     jump = cfg.climbing.target_grade - cfg.climbing.current_grade
     if jump >= 4:
-        warnings.append(f"Target is {jump} V-grades above current — that is very ambitious for one cycle; consider a nearer target.")
+        warnings.append(t("Target is {jump} V-grades above current — that is very ambitious for one cycle; consider a nearer target.", jump=jump))
 
     # dates / cycle length
     if cfg.goal.goal_date <= cfg.goal.start_date:
-        errors.append("goal.goal_date must be after start_date.")
+        errors.append(t("goal.goal_date must be after start_date."))
     else:
         wks = cfg.total_weeks
         if wks < MIN_CYCLE_WEEKS:
-            errors.append(
-                f"Only {wks} weeks to the goal — climbro needs at least {MIN_CYCLE_WEEKS} for a sane cycle "
-                "(otherwise the taper would land after your goal date). Move the date or pick a nearer goal."
-            )
+            errors.append(t(
+                "Only {wks} weeks to the goal — climbro needs at least {min} for a sane cycle "
+                "(otherwise the taper would land after your goal date). Move the date or pick a nearer goal.",
+                wks=wks, min=MIN_CYCLE_WEEKS))
         elif wks < 12:
-            warnings.append(f"{wks} weeks is tight — phases will be heavily compressed.")
+            warnings.append(t("{wks} weeks is tight — phases will be heavily compressed.", wks=wks))
         elif wks > 40:
-            warnings.append(f"{wks} weeks is a long horizon; consider splitting into multiple cycles.")
+            warnings.append(t("{wks} weeks is a long horizon; consider splitting into multiple cycles.", wks=wks))
 
     # cut block
     if cfg.weight.enabled:
         if cfg.target_bw_kg is None:
-            errors.append("weight.enabled is true but weight.target_bodyweight is missing.")
+            errors.append(t("weight.enabled is true but weight.target_bodyweight is missing."))
         elif cfg.target_bw_kg >= cfg.bw_kg:
-            errors.append("weight.target_bodyweight must be below current bodyweight when cutting.")
+            errors.append(t("weight.target_bodyweight must be below current bodyweight when cutting."))
         else:
             wks = max(1, cfg.total_weeks)
             total_loss = cfg.bw_kg - cfg.target_bw_kg
             weekly_pct = (total_loss / wks) / cfg.bw_kg * 100
             if weekly_pct > cfg.weight.max_rate_pct:
-                warnings.append(
-                    f"Implied loss ~{weekly_pct:.2f}%/wk exceeds your cap {cfg.weight.max_rate_pct:.2f}%/wk — "
-                    "the engine will cap the rate and the cut won't finish by the goal date."
-                )
+                warnings.append(t(
+                    "Implied loss ~{pct}%/wk exceeds your cap {cap}%/wk — "
+                    "the engine will cap the rate and the cut won't finish by the goal date.",
+                    pct=f"{weekly_pct:.2f}", cap=f"{cfg.weight.max_rate_pct:.2f}"))
         if not 0.2 <= cfg.weight.max_rate_pct <= 1.0:
-            warnings.append("weight.max_rate_pct outside 0.2–1.0%/wk; >1% risks muscle/strength loss.")
+            warnings.append(t("weight.max_rate_pct outside 0.2–1.0%/wk; >1% risks muscle/strength loss."))
 
     # availability
     if not (2 <= cfg.availability.days_per_week <= 7):
-        errors.append("availability.days_per_week must be between 2 and 7.")
+        errors.append(t("availability.days_per_week must be between 2 and 7."))
     ad = cfg.availability.available_days
     if ad is not None:
         bad = [d for d in ad if d not in WEEKDAYS]
         if bad:
-            errors.append(f"availability.available_days has invalid weekday(s): {bad} (use {WEEKDAYS}).")
+            errors.append(t("availability.available_days has invalid weekday(s): {bad} (use {valid}).", bad=bad, valid=WEEKDAYS))
         if len(ad) != cfg.availability.days_per_week:
-            errors.append("availability.available_days length must equal days_per_week.")
+            errors.append(t("availability.available_days length must equal days_per_week."))
 
     # equipment sanity
-    if cfg.goal.goal == Goal.COMPETITION and not (cfg.equipment.has_system_board or True):
-        pass  # comp prep can run without a board; no hard requirement
     if not cfg.equipment.has_fingerboard:
-        warnings.append("No fingerboard: finger-strength work will be redirected to on-the-wall protocols.")
+        warnings.append(t("No fingerboard: finger-strength work will be redirected to on-the-wall protocols."))
     if not cfg.equipment.has_gym:
-        warnings.append("No gym access: strength work will use bodyweight/board alternatives.")
+        warnings.append(t("No gym access: strength work will use bodyweight/board alternatives."))
 
     return errors, warnings
 

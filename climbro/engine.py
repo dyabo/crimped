@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 
 from .schema import Config, Goal, WEEKDAYS
 from .periodization import build_macrocycle, Macrocycle
+from .i18n import translator
 from . import norms
 
 
@@ -236,15 +237,18 @@ def _order_days(cfg: Config) -> list[str]:
     return WEEKDAYS[: cfg.availability.days_per_week]
 
 
-def _schedule_week(recipe: dict[str, int], train_days: list[str]) -> list[Session]:
+def _schedule_week(recipe: dict[str, int], train_days: list[str], t=None) -> list[Session]:
     """
     Place sessions on the given training weekdays so that:
     - quality (fingers/limit) land first and are spaced (no two adjacent),
     - then volume/wall/PE, then cardio, then rest fills any leftover day.
     """
+    if t is None:
+        t = translator("en")
+
     # build flat ordered list of sessions to place, quality first
     def intent_of(kind: str) -> str:
-        return {
+        return t({
             K_HANG: "Max hangs on 20mm, fresh, before climbing",
             K_PULLS: "Active recruitment pulls into a fixed edge",
             K_LIMIT: "Limit bouldering, long rests, fresh",
@@ -255,7 +259,7 @@ def _schedule_week(recipe: dict[str, int], train_days: list[str]) -> list[Sessio
             K_Z2: "Easy aerobic, conversational pace",
             K_LEAD: "Routes on a rope: mileage below limit (base) or linked circuits for power-endurance (bridge/peak); log honest RPE",
             K_REST: "Rest or mobility",
-        }[kind]
+        }[kind])
 
     quality, secondary, easy = [], [], []
     for kind, n in recipe.items():
@@ -400,6 +404,7 @@ class Plan:
 
 
 def build_plan(cfg: Config) -> Plan:
+    t = translator(cfg.language)
     macro = build_macrocycle(cfg)
     rows = macro.week_table()
     total = len(rows)
@@ -418,7 +423,7 @@ def build_plan(cfg: Config) -> Plan:
         recipe = _adapt_for_equipment(recipe, cfg)
         recipe = _apply_lead(recipe, r["phase_key"], cfg)
         recipe = _fit_to_days(recipe, len(train_days), r["deload"])
-        sessions = _schedule_week(recipe, train_days)
+        sessions = _schedule_week(recipe, train_days, t)
         planned = sum(1 for s in sessions if s.kind != K_REST)
         weeks.append(WeekPlan(
             week=r["week"], phase_key=r["phase_key"], phase_name=r["phase_name"],

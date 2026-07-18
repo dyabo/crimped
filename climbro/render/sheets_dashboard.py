@@ -11,6 +11,7 @@ from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Font, PatternFill, Alignment
 from .style import (h1, h2, th, td, note, fill, widths, FONT, GREY, RED, GREEN, ORANGE, TEAL)
 from ..engine import Plan
+from ..i18n import translator
 
 
 def _lastw(col: str, wr1: int, wr2: int) -> str:
@@ -34,57 +35,62 @@ def _phase_today(plan: Plan, wr1: int, wr2: int) -> str:
 
 
 def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> None:
+    cfg = plan.cfg
+    t = translator(cfg.language)
+
+    def q(s, **kw):
+        """A translated, Excel-quoted string literal for use inside formulas."""
+        return '"' + t(s, **kw).replace('"', '""') + '"'
+
     ws.sheet_view.showGridLines = False
     widths(ws, {"A": 30, "B": 18, "C": 3, "D": 64})
-    ws.merge_cells("A1:D1"); h1(ws["A1"], "Dashboard — where you are and what to do")
+    ws.merge_cells("A1:D1"); h1(ws["A1"], t("Dashboard — where you are and what to do"))
     ws.row_dimensions[1].height = 26
 
-    cfg = plan.cfg
-    unit = cfg.profile.units.value
+    unit = t(cfg.profile.units.value)
     start_bw = cfg.profile.bodyweight                 # display units
     target_bw = cfg.weight.target_bodyweight if cfg.weight.enabled else None  # display units
-    rate_txt = "-0.5 kg/wk" if unit == "kg" else "-1.1 lb/wk"
+    rate_txt = t("-0.5 kg/wk") if cfg.profile.units.value == "kg" else t("-1.1 lb/wk")
     norm = plan.norm_target_pct
     tgt_v = plan.target_v
     inj = getattr(plan, "_inj_active_formula", '0')
 
-    h2(ws, 3, 1, 2, "Now (last completed week)")
-    ws.merge_cells("C3:D3"); h2(ws, 3, 3, 4, "Reading")
+    h2(ws, 3, 1, 2, t("Now (last completed week)"))
+    ws.merge_cells("C3:D3"); h2(ws, 3, 3, 4, t("Reading"))
 
+    # (id, name, formula, number_format, description) — id is stable for CF matching
     kpi = [
-        ("Current weight", f'=IFERROR({_lastw("E",wr1,wr2)},"—")', "0.0", "From the latest check-in"),
-        ("Lost so far", f'=IFERROR({start_bw}-{_lastw("E",wr1,wr2)},"—")', "0.0", "From start"),
+        ("cur_wt", t("Current weight"), f'=IFERROR({_lastw("E",wr1,wr2)},"—")', "0.0", t("From the latest check-in")),
+        ("lost", t("Lost so far"), f'=IFERROR({start_bw}-{_lastw("E",wr1,wr2)},"—")', "0.0", t("From start")),
     ]
     if target_bw is not None:
-        kpi.append(("Left to target", f'=IFERROR({_lastw("E",wr1,wr2)}-{target_bw},"—")', "0.0", "≤0 = weight goal met"))
+        kpi.append(("left_to_target", t("Left to target"), f'=IFERROR({_lastw("E",wr1,wr2)}-{target_bw},"—")', "0.0", t("≤0 = weight goal met")))
     kpi += [
-        ("Current phase", _phase_today(plan, wr1, wr2), "@", "Where you are in the plan (by date)"),
-        ("Fingers %BW", f'=IFERROR({_lastne("T",wr1,wr2)},"—")', "0.0%", "(bw+hang)/bw"),
-        ("To V-target norm", f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", f"≤0 = V{tgt_v} finger norm reached"),
-        ("Best grade (wk)", f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", "Max in a week"),
-        ("Week load (sRPE)", f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", "Sum of min×RPE"),
-        ("ACWR (overload risk)", f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", "0.8–1.3 ok · >1.5 risky"),
-        ("Week status", f'=IFERROR({_lastw("X",wr1,wr2)},"—")', "@", "Composite traffic light"),
-        ("Weeks logged", f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", "Check-ins so far"),
-        ("Sessions logged", f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", "Journal rows"),
-        ("Week completion", f'=IFERROR({_lastw("AB",wr1,wr2)},"—")', "0%", "Actual ÷ planned sessions"),
-        ("Active injuries", f'={inj}', "0", "Active + rehab (see Injuries)"),
+        ("phase", t("Current phase"), _phase_today(plan, wr1, wr2), "@", t("Where you are in the plan (by date)")),
+        ("fingers", t("Fingers %BW"), f'=IFERROR({_lastne("T",wr1,wr2)},"—")', "0.0%", t("(bw+hang)/bw")),
+        ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
+        ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
+        ("load", t("Week load (sRPE)"), f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
+        ("acwr", t("ACWR (overload risk)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("0.8–1.3 ok · >1.5 risky")),
+        ("status", t("Week status"), f'=IFERROR({_lastw("X",wr1,wr2)},"—")', "@", t("Composite traffic light")),
+        ("weeks", t("Weeks logged"), f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", t("Check-ins so far")),
+        ("sessions", t("Sessions logged"), f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", t("Journal rows")),
+        ("completion", t("Week completion"), f'=IFERROR({_lastw("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
+        ("injuries", t("Active injuries"), f'={inj}', "0", t("Active + rehab (see Injuries)")),
     ]
     r = 4
-    left_to_target_row = None
-    acwr_row = None
-    inj_row = None
-    for name, f, fmt, desc in kpi:
+    left_to_target_row = acwr_row = inj_row = None
+    for kid, name, f, fmt, desc in kpi:
         td(ws.cell(r, 1), name, bold=True)
         ws.cell(r, 2, f); td(ws.cell(r, 2), center=True); ws.cell(r, 2).number_format = fmt
         ws.cell(r, 2).font = Font(FONT, 12, bold=True)
         ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
         td(ws.cell(r, 3), desc)
-        if name == "Left to target":
+        if kid == "left_to_target":
             left_to_target_row = r
-        if name == "ACWR (overload risk)":
+        elif kid == "acwr":
             acwr_row = r
-        if name == "Active injuries":
+        elif kid == "injuries":
             inj_row = r
         if (r % 2) == 0:
             for c in (1, 2, 3):
@@ -101,28 +107,32 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
 
     # ---- advisor (concrete actions) ----
     r += 1
-    h2(ws, r, 1, 4, "Advisor"); ws.row_dimensions[r].height = 20
+    h2(ws, r, 1, 4, t("Advisor")); ws.row_dimensions[r].height = 20
     r += 1
     cw = _lastw("E", wr1, wr2)
+    g = _lastw("G", wr1, wr2)
+    tt, uu, ss = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2), _lastne("S", wr1, wr2)
+    ww, yy, zz, ab, xx = (_lastw("W", wr1, wr2), _lastw("Y", wr1, wr2), _lastw("Z", wr1, wr2),
+                          _lastw("AB", wr1, wr2), _lastw("X", wr1, wr2))
     advice = []
     if target_bw is not None:
         advice.append(
-            f'=IFERROR("Weight: down "&TEXT({start_bw}-{cw},"0.0")&" of "&TEXT({start_bw}-{target_bw},"0.0")&" kg, "&TEXT({cw}-{target_bw},"0.0")&" to go. "'
-            f'&IF({_lastw("G",wr1,wr2)}>1,"Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.",'
-            f'IF({_lastw("G",wr1,wr2)}<-1,"Faster than planned — raise calories; aim {rate_txt} to keep strength.","On the planned curve.")),"Weight: enter a bodyweight in Week.")'
+            f'=IFERROR({q("Weight: down ")}&TEXT({start_bw}-{cw},"0.0")&{q(" of ")}&TEXT({start_bw}-{target_bw},"0.0")&{q(" kg, ")}&TEXT({cw}-{target_bw},"0.0")&{q(" to go. ")}'
+            f'&IF({g}>1,{q("Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.")},'
+            f'IF({g}<-1,{q("Faster than planned — raise calories; aim {rate} to keep strength.", rate=rate_txt)},{q("On the planned curve.")})),{q("Weight: enter a bodyweight in Week.")})'
         )
     advice += [
-        f'=IFERROR("Fingers: "&TEXT({_lastne("T",wr1,wr2)},"0.0%")&" BW; to the V{tgt_v} norm ("&TEXT({norm},"0%")&") "'
-        f'&IF({_lastne("U",wr1,wr2)}<=0,"— reached. Now convert it on the wall (technique, limit).",'
-        f'"need "&TEXT({_lastne("U",wr1,wr2)}*100,"0.0")&" pts (~"&TEXT({_lastne("U",wr1,wr2)}*{cw},"0.0")&" {unit}). Keep 2 finger sessions/wk, add load slowly."),"Fingers: log a max hang in Journal.")',
-        f'=IFERROR("Fatigue: ACWR "&TEXT({_lastne("S",wr1,wr2)},"0.00")&". "'
-        f'&IF({_lastne("S",wr1,wr2)}>1.5,"Sharp jump — next week drop 1 power-endurance/volume session and add a rest day.",'
-        f'IF({_lastne("S",wr1,wr2)}<0.8,"Low — you can add 1 volume/technique session.","In the optimal band, hold steady.")),"Fatigue: ACWR builds after ~2-3 logged weeks.")',
-        f'=IF({inj}>0,"⚠ Active injuries: "&TEXT({inj},"0")&" — follow the rehab in Injuries, don'+chr(39)+'t load the area, swap the affected sessions.","Injuries: none active.")',
-        f'=IFERROR(IF({_lastw("W",wr1,wr2)}>=2,"Finger pain "&TEXT({_lastw("W",wr1,wr2)},"0")&"/3 — rest fingers, switch to legs/cardio/mobility, add an Injuries row.",'
-        f'IF(OR(AND({_lastw("Y",wr1,wr2)}<>"",{_lastw("Y",wr1,wr2)}<=2),AND({_lastw("Z",wr1,wr2)}<>"",{_lastw("Z",wr1,wr2)}>=8)),"Sleep/stress are down — swap the next limit day for a technique day, prioritise sleep.","Recovery: sleep and stress look fine.")),"Log pain, sleep and stress to track recovery.")',
-        f'=IFERROR("Completion: "&TEXT({_lastw("AB",wr1,wr2)},"0%")&". "&IF({_lastw("AB",wr1,wr2)}<0.7,"Week under-done — don'+chr(39)+'t cram it back; add volume gradually (+10-15%).","Volume on plan."),"Completion shows once sessions + plan exist.")',
-        f'=IFERROR("Overall last-week status: "&{_lastw("X",wr1,wr2)},"Status appears after your first check-in.")',
+        f'=IFERROR({q("Fingers: ")}&TEXT({tt},"0.0%")&{q(" BW; to the V{v} norm (", v=tgt_v)}&TEXT({norm},"0%")&{q(") ")}'
+        f'&IF({uu}<=0,{q("— reached. Now convert it on the wall (technique, limit).")},'
+        f'{q("need ")}&TEXT({uu}*100,"0.0")&{q(" pts (~")}&TEXT({uu}*{cw},"0.0")&{q(" {unit}). Keep 2 finger sessions/wk, add load slowly.", unit=unit)}),{q("Fingers: log a max hang in Journal.")})',
+        f'=IFERROR({q("Fatigue: ACWR ")}&TEXT({ss},"0.00")&{q(". ")}'
+        f'&IF({ss}>1.5,{q("Sharp jump — next week drop 1 power-endurance/volume session and add a rest day.")},'
+        f'IF({ss}<0.8,{q("Low — you can add 1 volume/technique session.")},{q("In the optimal band, hold steady.")})),{q("Fatigue: ACWR builds after ~2-3 logged weeks.")})',
+        f'=IF({inj}>0,{q("⚠ Active injuries: ")}&TEXT({inj},"0")&{q(" — follow the rehab in Injuries, don\'t load the area, swap the affected sessions.")},{q("Injuries: none active.")})',
+        f'=IFERROR(IF({ww}>=2,{q("Finger pain ")}&TEXT({ww},"0")&{q("/3 — rest fingers, switch to legs/cardio/mobility, add an Injuries row.")},'
+        f'IF(OR(AND({yy}<>"",{yy}<=2),AND({zz}<>"",{zz}>=8)),{q("Sleep/stress are down — swap the next limit day for a technique day, prioritise sleep.")},{q("Recovery: sleep and stress look fine.")})),{q("Log pain, sleep and stress to track recovery.")})',
+        f'=IFERROR({q("Completion: ")}&TEXT({ab},"0%")&{q(". ")}&IF({ab}<0.7,{q("Week under-done — don\'t cram it back; add volume gradually (+10-15%).")},{q("Volume on plan.")}),{q("Completion shows once sessions + plan exist.")})',
+        f'=IFERROR({q("Overall last-week status: ")}&{xx},{q("Status appears after your first check-in.")})',
     ]
     for a in advice:
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
@@ -133,8 +143,9 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
 
 def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
     import math
+    t = translator(plan.cfg.language)
     ws.sheet_view.showGridLines = False
-    ws.merge_cells("A1:S1"); h1(ws["A1"], "Charts (populate as you log)")
+    ws.merge_cells("A1:S1"); h1(ws["A1"], t("Charts (populate as you log)"))
     ws.row_dimensions[1].height = 24
     week = next((s for s in ws.parent.worksheets if s.title == "Week"), None)
     if week is None:
@@ -151,7 +162,7 @@ def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
             ref = Reference(week, min_col=c, max_col=c, min_row=hdr_row, max_row=wr2)
             ch.add_data(ref, titles_from_data=True)
         ch.set_categories(Reference(week, min_col=1, min_row=wr1, max_row=wr2))
-        ch.x_axis.title = "Week"
+        ch.x_axis.title = t("Week")
         ch.x_axis.delete = False; ch.y_axis.delete = False
         if ymin is not None:
             ch.y_axis.scaling.min = ymin
@@ -182,25 +193,25 @@ def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
     s_max = max((w.planned_session_count for w in plan.weeks), default=6) + 1
 
     # ----- charts (2-up: left column A, right column K) -----
-    line("Weight: actual vs plan" if has_cut else "Weight",
+    line(t("Weight: actual vs plan") if has_cut else t("Weight"),
          [5, 6] if has_cut else [5], "A3", w_min, w_max)
-    line(f"Fingers %BW (target {norm*100:.0f}%)", [20], "K3", f_min, f_max, yfmt="0%")
+    line(t("Fingers %BW (target {pct}%)", pct=f"{norm*100:.0f}"), [20], "K3", f_min, f_max, yfmt="0%")
 
-    line("Best grade / week (V)", [22], "A18", g_min, g_max)
-    line("Weekly load: acute vs chronic (sRPE)", [17, 18], "K18", 0)
+    line(t("Best grade / week (V)"), [22], "A18", g_min, g_max)
+    line(t("Weekly load: acute vs chronic (sRPE)"), [17, 18], "K18", 0)
 
-    line("ACWR — overload risk", [19], "A33", 0, 2)
-    line("Sessions: planned vs done", [27, 16], "K33", 0, s_max)
+    line(t("ACWR — overload risk"), [19], "A33", 0, 2)
+    line(t("Sessions: planned vs done"), [27, 16], "K33", 0, s_max)
 
-    line("Fatigue & stress (1-10)", [15, 26], "A48", 0, 10)
-    line("Sleep (h / night)", [14], "K48", 0, 12)
+    line(t("Fatigue & stress (1-10)"), [15, 26], "A48", 0, 10)
+    line(t("Sleep (h / night)"), [14], "K48", 0, 12)
 
-    line("Max finger pain (0-3)", [23], "A63", 0, 3)
+    line(t("Max finger pain (0-3)"), [23], "A63", 0, 3)
     if m["hrv"] or m["resting_hr"]:
         hrv_cols = ([10] if m["hrv"] else []) + ([12] if m["resting_hr"] else [])
-        line("HRV & resting HR", hrv_cols, "K63")   # auto y-axis (device-dependent range)
+        line(t("HRV & resting HR"), hrv_cols, "K63")   # auto y-axis (device-dependent range)
 
     note(ws.cell(80, 1),
-         "Lines appear as Week fills in. Axes are pre-scaled to your plan's range; "
-         "keep ACWR in the 0.8–1.3 band and finger pain at 0.")
+         t("Lines appear as Week fills in. Axes are pre-scaled to your plan's range; "
+           "keep ACWR in the 0.8–1.3 band and finger pain at 0."))
     ws.merge_cells("A80:S80")

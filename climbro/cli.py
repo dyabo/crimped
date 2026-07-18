@@ -17,6 +17,7 @@ import sys
 from datetime import date
 
 from .schema import (SURVEY, from_dict, validate, parse_grade, GradeScale, WEEKDAYS)
+from .i18n import Language, translator
 from .engine import build_plan
 from .render import render
 
@@ -24,24 +25,43 @@ from .render import render
 # --------------------------------------------------------------------------- #
 # tiny prompt helpers (stdlib only)
 # --------------------------------------------------------------------------- #
-def _ask(prompt: str, kind: str, opts: dict, ctx: dict):
+_BOOL_TRUE = {"y", "yes", "true", "1", "д", "да"}
+_BOOL_FALSE = {"n", "no", "false", "0", "н", "нет"}
+
+
+def _ask_language() -> Language:
+    """First question, before we know the language — so it's bilingual."""
+    while True:
+        raw = input("Language / Язык [en/ru]: ").strip().lower()
+        if raw == "":
+            return Language.EN
+        if raw in ("en", "ru"):
+            return Language(raw)
+        print("  invalid — try again / неверно, ещё раз")
+
+
+def _ask(prompt: str, kind: str, opts: dict, ctx: dict, t):
+    """Ask one localized question. Choices/weekdays accept the English canonical
+    value OR its translation; the canonical value is always what gets stored."""
     optional = opts.get("optional", False)
-    suffix = " [optional, Enter to skip]" if optional else ""
+    suffix = t(" [optional, Enter to skip]") if optional else ""
+    p = t(prompt)
     while True:
         if kind == "choice":
-            choices = opts["choices"]
-            raw = input(f"{prompt} {choices}{suffix}: ").strip()
+            disp = [t(c) for c in opts["choices"]]
+            raw = input(f"{p} {disp}{suffix}: ").strip()
         elif kind == "bool":
-            raw = input(f"{prompt} (y/n){suffix}: ").strip().lower()
+            raw = input(f"{p} {t('(y/n)')}{suffix}: ").strip().lower()
         elif kind == "weekdays":
-            raw = input(f"{prompt} {WEEKDAYS}{suffix}: ").strip()
+            disp = [t(d) for d in WEEKDAYS]
+            raw = input(f"{p} {disp}{suffix}: ").strip()
         else:
-            raw = input(f"{prompt}{suffix}: ").strip()
+            raw = input(f"{p}{suffix}: ").strip()
 
         if raw == "" and optional:
             return None
         if raw == "" and not optional:
-            print("  (required)")
+            print(t("  (required)"))
             continue
 
         try:
@@ -52,21 +72,27 @@ def _ask(prompt: str, kind: str, opts: dict, ctx: dict):
             if kind == "float":
                 return float(raw.replace(",", "."))
             if kind == "bool":
-                if raw in ("y", "yes", "true", "1"):
+                if raw in _BOOL_TRUE:
                     return True
-                if raw in ("n", "no", "false", "0"):
+                if raw in _BOOL_FALSE:
                     return False
                 raise ValueError
             if kind == "choice":
-                if raw in opts["choices"]:
-                    return raw
+                low = raw.lower()
+                for c in opts["choices"]:
+                    if low in (c.lower(), t(c).lower()):
+                        return c
                 raise ValueError
             if kind == "weekdays":
-                days = raw.replace(",", " ").split()
-                days = [d.capitalize() for d in days]
-                if any(d not in WEEKDAYS for d in days):
-                    raise ValueError
-                return days
+                rev = {d.lower(): d for d in WEEKDAYS}
+                rev.update({t(d).lower(): d for d in WEEKDAYS})
+                out = []
+                for x in raw.replace(",", " ").split():
+                    key = x.lower()
+                    if key not in rev:
+                        raise ValueError
+                    out.append(rev[key])
+                return out
             if kind == "date":
                 return date.fromisoformat(raw).isoformat()
             if kind == "grade":
@@ -74,7 +100,7 @@ def _ask(prompt: str, kind: str, opts: dict, ctx: dict):
                 parse_grade(scale, raw)  # validate parseable
                 return raw
         except (ValueError, KeyError):
-            print("  invalid — try again")
+            print(t("  invalid — try again"))
 
 
 def _set(d: dict, dotted: str, value) -> None:
@@ -83,15 +109,17 @@ def _set(d: dict, dotted: str, value) -> None:
 
 
 def run_wizard() -> dict:
-    print("\nclimbro — let's build your plan. Answer a few questions.\n")
+    lang = _ask_language()               # language first — it drives every prompt below
+    t = translator(lang)
+    print(t("\nclimbro — let's build your plan. Answer a few questions.\n"))
     flat: dict = {}   # dotted answers, for grade-scale context
-    cfg: dict = {}
+    cfg: dict = {"language": lang.value}
     for dotted, prompt, kind, opts in SURVEY:
         # skip dependent question if its condition is False
         dep = opts.get("depends_on")
         if dep and not flat.get(dep):
             continue
-        val = _ask(prompt, kind, opts, flat)
+        val = _ask(prompt, kind, opts, flat, t)
         if val is None:
             continue
         flat[dotted] = val
@@ -120,11 +148,12 @@ def main(argv=None) -> int:
     else:
         cfg = from_dict(run_wizard())
 
+    t = translator(cfg.language)
     errors, warnings = validate(cfg)
     for w in warnings:
         print(f"  ! {w}")
     if errors:
-        print("\nCan't generate — fix these:")
+        print(t("\nCan't generate — fix these:"))
         for e in errors:
             print(f"  ✗ {e}")
         return 1
@@ -135,10 +164,12 @@ def main(argv=None) -> int:
 
     plan = build_plan(cfg)
     path = render(plan, out)
-    print(f"\n✓ Wrote {path}")
-    print(f"  {plan.macro.total_weeks} weeks · goal V{plan.target_v} · "
-          f"finger norm {plan.norm_target_pct*100:.0f}%BW (+{plan.norm_target_added_kg:.1f}kg)")
-    print("  Start on the Dashboard; log sessions in Journal and a weekly check-in in Week.")
+    print(t("\n✓ Wrote {path}", path=path))
+    print(t("  {weeks} weeks · goal V{v} · finger norm {pct}%BW (+{kg}{unit})",
+            weeks=plan.macro.total_weeks, v=plan.target_v,
+            pct=f"{plan.norm_target_pct*100:.0f}",
+            kg=f"{plan.norm_target_added_kg:.1f}", unit=t("kg")))
+    print(t("  Start on the Dashboard; log sessions in Journal and a weekly check-in in Week."))
     return 0
 
 
