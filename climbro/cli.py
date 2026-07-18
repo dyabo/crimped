@@ -45,6 +45,8 @@ def _ask(prompt: str, kind: str, opts: dict, ctx: dict, t):
     value OR its translation; the canonical value is always what gets stored."""
     optional = opts.get("optional", False)
     suffix = t(" [optional, Enter to skip]") if optional else ""
+    example = opts.get("example")
+    ex_hint = f" ({t('e.g. {ex}', ex=t(example))})" if example else ""
     p = t(prompt)
     while True:
         if kind == "choice":
@@ -54,9 +56,9 @@ def _ask(prompt: str, kind: str, opts: dict, ctx: dict, t):
             raw = input(f"{p} {t('(y/n)')}{suffix}: ").strip().lower()
         elif kind == "weekdays":
             disp = [t(d) for d in WEEKDAYS]
-            raw = input(f"{p} {disp}{suffix}: ").strip()
+            raw = input(f"{p} {disp}{ex_hint}{suffix}: ").strip()
         else:
-            raw = input(f"{p}{suffix}: ").strip()
+            raw = input(f"{p}{ex_hint}{suffix}: ").strip()
 
         if raw == "" and optional:
             return None

@@ -29,6 +29,7 @@ _RU: dict[str, str] = {
     "\nclimbro — let's build your plan. Answer a few questions.\n":
         "\nclimbro — соберём твой план. Ответь на несколько вопросов.\n",
     " [optional, Enter to skip]": " [необязательно, Enter — пропустить]",
+    "e.g. {ex}": "напр. {ex}",
     "  (required)": "  (обязательно)",
     "  invalid — try again": "  неверно — попробуй ещё раз",
     "(y/n)": "(д/н)",
@@ -62,8 +63,8 @@ _RU: dict[str, str] = {
     "Do you want to lose weight as part of this?": "Хочешь снижать вес в рамках плана?",
     "Target bodyweight (if cutting)": "Целевой вес тела (если сушка)",
     "Training days per week (2–7)": "Тренировочных дней в неделю (2–7)",
-    "Which weekdays (optional, e.g. Mon Tue Thu Sat)":
-        "Какие дни недели (необязательно, напр. Пн Вт Чт Сб)",
+    "Which weekdays (optional)": "Какие дни недели (необязательно)",
+    "Mon Tue Thu Sat": "Пн Вт Чт Сб",   # weekday example shown in the wizard
     "Do you have a fingerboard/hangboard?": "Есть ли фингерборд/ханборд?",
     "Do you have a system board (MoonBoard/Kilter/Tension)?":
         "Есть ли систем-борд (MoonBoard/Kilter/Tension)?",
