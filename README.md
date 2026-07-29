@@ -1,8 +1,14 @@
 # climbro
 
-A command-line generator for a **climbing training tracker** (Excel workbook) that
-adapts to your level, goal, schedule and gear — then tracks your progress with
-real sports-science analytics.
+A generator for a **climbing training tracker** (Excel workbook) that adapts to your
+level, goal, schedule and gear — then tracks your progress with real sports-science
+analytics.
+
+### ▶︎ [Build your plan in the browser →](https://dyabo.github.io/climbro/web/)
+
+No install, no account, works on your phone. English or Russian. The whole thing runs
+locally in your browser — your answers never leave your device. (Prefer a terminal?
+There's a [CLI](#install--run-cli).)
 
 > **Open source under the MIT license.** See **[DISCLAIMER.md](DISCLAIMER.md)** — it is not
 > medical or coaching advice.
@@ -29,12 +35,15 @@ use a Garmin-style wearable, recovery-metric columns stay out of your way.
 
 ## Use it in your browser (no install)
 
-The easiest way — nothing to install. Open the **[web app](web/)**: a static page that
-runs the real climbro engine in your browser via Pyodide (Python→WebAssembly). Answer
-the survey, click once, and the `.xlsx` downloads locally — **nothing is uploaded**, so
-your bodyweight/health answers never leave your device. Works on desktop and phone, in
-English or Russian. Host it free on GitHub Pages (see [web/README.md](web/README.md)) or
-run it locally with `python3 -m http.server` and open `web/index.html`.
+**→ https://dyabo.github.io/climbro/web/**
+
+The easiest way — nothing to install. It's a static page that runs the real climbro
+engine in your browser via Pyodide (Python→WebAssembly). Answer the survey, click once,
+and the `.xlsx` downloads locally — **nothing is uploaded**, so your bodyweight/health
+answers never leave your device. Works on desktop and phone, in English or Russian.
+(First load takes a few seconds while the Python runtime downloads, then it's cached.)
+
+To run that same page locally, see [web/README.md](web/README.md).
 
 ## Install & run (CLI)
 
