@@ -3,70 +3,186 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Build a personalized climbing training plan — periodized cycle, day-by-day schedule, sRPE/ACWR analytics. Runs entirely in your browser.">
+<meta name="theme-color" content="#0e1319">
 <title>climbro — build your climbing plan</title>
 <style>
+  /* ---------------------------------------------------------------
+     Palette: alpine rock + chalk + alpenglow (sunset on granite)
+     --------------------------------------------------------------- */
   :root{
-    --bg:#f4f6f9; --card:#fff; --ink:#1f2b3a; --muted:#5b6b7d; --line:#e2e8f0;
-    --navy:#1F3A5F; --blue:#2E6DA4; --accent:#2E6DA4; --ok:#2f855a; --err:#c53030;
-    --shadow:0 1px 3px rgba(16,32,60,.08),0 8px 24px rgba(16,32,60,.06);
+    --rock:#0d1218; --rock-2:#131b24; --card:#18212c; --line:#2a3644;
+    --ink:#e9eef4; --muted:#93a3b4;
+    --glow:#f0803f;      /* alpenglow orange  */
+    --glow-2:#dd5450;    /* deep sunset red   */
+    --alpine:#57a5cc;    /* cold alpine blue  */
+    --moss:#7aa563;
+    --chalk:#f4f2ee;
+    --ok:#79b56a; --err:#e8705f; --warn:#e2b04a;
+    --ring:rgba(240,128,63,.35);
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 34px rgba(0,0,0,.34);
   }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#0f1620; --card:#161f2b; --ink:#e7edf5; --muted:#9fb0c3; --line:#26313f;
-           --navy:#24435f; --blue:#4d8bd0; --accent:#4d8bd0; --shadow:0 1px 3px rgba(0,0,0,.4); }
+  @media (prefers-color-scheme: light){
+    :root{
+      --rock:#efece6; --rock-2:#e6e2da; --card:#fbfaf8; --line:#ddd7cc;
+      --ink:#1e2732; --muted:#6b7a89;
+      --glow:#d9601f; --glow-2:#c0392f; --alpine:#2f7ea6; --moss:#5c8a4a;
+      --ok:#3f7f34; --err:#b8402f; --warn:#a0761a;
+      --ring:rgba(217,96,31,.28);
+      --shadow:0 1px 2px rgba(30,39,50,.07), 0 12px 30px rgba(30,39,50,.09);
+    }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-  .wrap{max-width:720px;margin:0 auto;padding:24px 16px 64px}
-  header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin:8px 0 18px}
-  .brand{display:flex;align-items:baseline;gap:10px}
-  .brand h1{font-size:26px;margin:0;letter-spacing:-.5px}
-  .brand .v{color:var(--muted);font-size:13px}
-  .brand .gh{color:var(--muted);display:inline-flex;align-self:center;margin-left:2px}
-  .brand .gh:hover{color:var(--accent)}
-  .lang{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
-  .lang button{border:0;background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:600}
-  .lang button.on{background:var(--accent);color:#fff}
-  .sub{color:var(--muted);margin:0 0 20px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px 20px 8px}
-  .field{padding:12px 0;border-top:1px solid var(--line)}
-  .field:first-child{border-top:0}
-  .field label.q{display:block;font-weight:600;margin-bottom:7px}
-  .field .ex{color:var(--muted);font-weight:400;font-size:13px}
-  input[type=text],input[type=number],input[type=date],select{
-    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}
-  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
-  .req{color:var(--err);margin-left:3px}
-  .days{display:flex;flex-wrap:wrap;gap:8px}
-  .days label,.boolrow label{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);
-    padding:8px 12px;border-radius:9px;cursor:pointer;user-select:none}
-  .days input,.boolrow input{accent-color:var(--accent);width:16px;height:16px}
-  .boolrow{display:flex;gap:8px}
-  .actions{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 4px;margin-top:14px}
-  button.go{width:100%;border:0;border-radius:11px;background:var(--accent);color:#fff;font-size:16px;font-weight:700;
-    padding:14px;cursor:pointer}
-  button.go:disabled{opacity:.55;cursor:progress}
-  .msg{margin:14px 0 0;padding:12px 14px;border-radius:10px;font-size:14px;display:none}
-  .msg.err{display:block;background:rgba(197,48,48,.1);border:1px solid rgba(197,48,48,.35);color:var(--err)}
-  .msg.ok{display:block;background:rgba(47,133,90,.12);border:1px solid rgba(47,133,90,.35);color:var(--ok)}
-  .msg.warn{display:block;background:rgba(214,158,46,.14);border:1px solid rgba(214,158,46,.4);color:#9a6b00}
-  .msg ul{margin:6px 0 0;padding-left:18px}
-  #boot{text-align:center;color:var(--muted);padding:30px 0}
-  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;
-    display:inline-block;animation:sp 1s linear infinite;vertical-align:-6px;margin-right:8px}
+  html,body{overflow-x:hidden}
+  body{
+    margin:0; background:var(--rock); color:var(--ink);
+    font:15.5px/1.6 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* --- topographic contour backdrop ------------------------------ */
+  .topo{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .topo svg{width:100%;height:100%}
+  .topo path,.topo ellipse{fill:none;stroke:var(--ink);stroke-width:1;opacity:.055}
+  .sky{position:fixed;top:0;left:0;right:0;height:56vh;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(120% 70% at 78% -8%, color-mix(in srgb,var(--glow) 26%, transparent), transparent 62%),
+      radial-gradient(90% 55% at 12% -12%, color-mix(in srgb,var(--glow-2) 18%, transparent), transparent 60%);}
+  .ridge{position:fixed;top:0;left:0;right:0;z-index:0;pointer-events:none;opacity:.5}
+
+  .wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:26px 18px 72px}
+
+  /* --- header ---------------------------------------------------- */
+  header{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;margin:6px 0 6px}
+  .brand{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+  .brand h1{
+    font-size:38px;margin:0;letter-spacing:-1.4px;font-weight:850;line-height:1;
+    background:linear-gradient(96deg,var(--glow),var(--glow-2) 62%,var(--alpine));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .brand .v{color:var(--muted);font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  .brand .gh{color:var(--muted);display:inline-flex;align-self:center;transition:color .15s,transform .15s}
+  .brand .gh:hover{color:var(--glow);transform:translateY(-1px)}
+  .lang{display:flex;gap:3px;background:color-mix(in srgb,var(--card) 80%, transparent);
+    border:1px solid var(--line);border-radius:999px;padding:3px;backdrop-filter:blur(6px);flex:none}
+  .lang button{border:0;background:transparent;color:var(--muted);padding:6px 13px;border-radius:999px;
+    cursor:pointer;font-weight:750;font-size:13px;letter-spacing:.05em}
+  .lang button.on{background:linear-gradient(135deg,var(--glow),var(--glow-2));color:#fff;
+    box-shadow:0 2px 10px rgba(0,0,0,.25)}
+
+  .tagline{color:var(--muted);margin:2px 0 6px;max-width:62ch}
+  .badges{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 22px}
+  .badge{font-size:12px;letter-spacing:.03em;color:var(--muted);border:1px solid var(--line);
+    background:color-mix(in srgb,var(--card) 55%, transparent);padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .badge b{color:var(--ink);font-weight:700}
+
+  /* --- boot / loading -------------------------------------------- */
+  #boot{background:color-mix(in srgb,var(--card) 88%, transparent);border:1px solid var(--line);
+    border-radius:16px;box-shadow:var(--shadow);padding:34px 22px;text-align:center;color:var(--muted)}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--glow);border-radius:50%;
+    display:inline-block;animation:sp 1s linear infinite;vertical-align:-7px;margin-right:10px}
   @keyframes sp{to{transform:rotate(360deg)}}
-  footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:22px}
-  footer a{color:var(--accent)}
-  .hidden{display:none}
+
+  /* --- pitches (question groups) --------------------------------- */
+  .pitch{position:relative;background:color-mix(in srgb,var(--card) 92%, transparent);
+    border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+    padding:18px 20px 8px 22px;margin:0 0 16px 26px}
+  /* the route line + bolt marker, like a topo route drawn up the page */
+  .pitch::before{content:"";position:absolute;left:-26px;top:26px;bottom:-16px;width:2px;
+    background:repeating-linear-gradient(to bottom,var(--line) 0 7px,transparent 7px 14px)}
+  .pitch:last-of-type::before{display:none}
+  .pitch > .num{position:absolute;left:-40px;top:8px;width:28px;height:28px;border-radius:50%;
+    display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;
+    background:linear-gradient(140deg,var(--glow),var(--glow-2));
+    box-shadow:0 0 0 4px var(--rock), 0 3px 10px rgba(0,0,0,.4)}
+  .pitch h2{margin:0 0 2px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--glow);font-weight:800}
+  .pitch .ph{color:var(--muted);font-size:13px;margin:0 0 4px}
+
+  .field{padding:13px 0;border-top:1px solid color-mix(in srgb,var(--line) 60%, transparent)}
+  .field:first-of-type{border-top:0}
+  .field label.q{display:block;font-weight:650;margin-bottom:8px}
+  .field .ex{color:var(--muted);font-weight:400;font-size:13px}
+  .req{color:var(--glow);margin-left:3px}
+
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;
+    background:color-mix(in srgb,var(--rock-2) 75%, transparent);color:var(--ink);font:inherit}
+  input:focus,select:focus{outline:0;border-color:var(--glow);box-shadow:0 0 0 4px var(--ring)}
+  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 18px) calc(1em + 2px),calc(100% - 13px) calc(1em + 2px);
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:38px}
+
+  .days{display:flex;flex-wrap:wrap;gap:8px}
+  .days label,.boolrow label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+    background:color-mix(in srgb,var(--rock-2) 70%, transparent);border:1px solid var(--line);
+    padding:9px 13px;border-radius:10px;transition:border-color .15s,background .15s}
+  .days label:hover,.boolrow label:hover{border-color:var(--glow)}
+  .days label:has(input:checked),.boolrow label:has(input:checked){
+    border-color:var(--glow);background:color-mix(in srgb,var(--glow) 14%, transparent)}
+  .days input,.boolrow input{accent-color:var(--glow);width:16px;height:16px}
+
+  /* --- action bar ------------------------------------------------- */
+  .actions{position:sticky;bottom:0;padding:16px 0 6px;margin-left:26px;
+    background:linear-gradient(transparent,var(--rock) 42%)}
+  button.go{width:100%;border:0;border-radius:13px;color:#fff;font-size:16.5px;font-weight:800;
+    letter-spacing:.01em;padding:15px;cursor:pointer;
+    background:linear-gradient(135deg,var(--glow),var(--glow-2));
+    box-shadow:0 6px 20px color-mix(in srgb,var(--glow-2) 32%, transparent)}
+  button.go:hover{filter:brightness(1.06)}
+  button.go:disabled{opacity:.6;cursor:progress;filter:none}
+
+  .msg{margin:14px 0 0;padding:13px 15px;border-radius:12px;font-size:14.5px;display:none}
+  .msg.err{display:block;background:color-mix(in srgb,var(--err) 13%, transparent);
+    border:1px solid color-mix(in srgb,var(--err) 45%, transparent);color:var(--err)}
+  .msg.ok{display:block;background:color-mix(in srgb,var(--ok) 14%, transparent);
+    border:1px solid color-mix(in srgb,var(--ok) 45%, transparent);color:var(--ok)}
+  .msg ul{margin:6px 0 0;padding-left:18px}
+  .msg strong{color:inherit}
+
+  footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
+  footer a{color:var(--alpine);text-decoration-color:color-mix(in srgb,var(--alpine) 45%, transparent)}
+  .hidden{display:none !important}
+
+  @media (max-width:560px){
+    .brand h1{font-size:31px}
+    .pitch{margin-left:20px;padding:16px 15px 6px 16px}
+    .pitch::before{left:-20px}
+    .pitch > .num{left:-33px;width:24px;height:24px;font-size:11px}
+    .actions{margin-left:20px}
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }
 </style>
 </head>
 <body>
+
+<!-- alpenglow sky + topo contours + ridge silhouette -->
+<div class="sky"></div>
+<div class="topo" aria-hidden="true">
+  <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+    <g transform="translate(560,150) rotate(-18)">
+      <ellipse rx="38" ry="26"/><ellipse rx="74" ry="50"/><ellipse rx="112" ry="76"/>
+      <ellipse rx="154" ry="104"/><ellipse rx="200" ry="134"/><ellipse rx="250" ry="166"/>
+    </g>
+    <g transform="translate(120,470) rotate(12)">
+      <ellipse rx="30" ry="21"/><ellipse rx="62" ry="43"/><ellipse rx="98" ry="68"/>
+      <ellipse rx="138" ry="95"/><ellipse rx="182" ry="124"/>
+    </g>
+  </svg>
+</div>
+<svg class="ridge" viewBox="0 0 1440 190" preserveAspectRatio="none" aria-hidden="true" height="190">
+  <path d="M0,190 L0,126 L96,86 L178,120 L263,52 L350,104 L437,36 L521,92 L610,20 L700,88 L784,44 L873,110 L961,66 L1050,116 L1140,74 L1228,124 L1320,88 L1404,126 L1440,104 L1440,190 Z"
+        fill="currentColor" style="color:var(--rock-2)" opacity=".72"/>
+  <path d="M0,190 L0,152 L110,128 L214,156 L318,112 L426,150 L534,118 L640,154 L754,124 L860,158 L968,130 L1078,160 L1188,134 L1300,162 L1400,140 L1440,152 L1440,190 Z"
+        fill="currentColor" style="color:var(--rock)" opacity=".9"/>
+</svg>
+
 <div class="wrap">
   <header>
     <div class="brand">
       <h1>climbro</h1><span class="v">v0.1</span>
       <a class="gh" id="repo" href="https://github.com/dyabo/climbro" target="_blank" rel="noopener" title="Source on GitHub" aria-label="Source on GitHub">
-        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        <svg viewBox="0 0 16 16" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
       </a>
     </div>
     <div class="lang" id="lang">
@@ -74,11 +190,13 @@
       <button data-l="ru">RU</button>
     </div>
   </header>
-  <p class="sub" id="sub">Answer a few questions and download your personalized climbing training tracker. Everything runs in your browser — nothing is uploaded.</p>
 
-  <div id="boot" class="card"><span class="spin"></span><span id="bootmsg">Loading the engine…</span></div>
+  <p class="tagline" id="sub"></p>
+  <div class="badges" id="badges"></div>
 
-  <form id="form" class="card hidden" autocomplete="off"></form>
+  <div id="boot"><span class="spin"></span><span id="bootmsg">Chalking up…</span></div>
+
+  <form id="form" class="hidden" autocomplete="off"></form>
   <div class="actions hidden" id="actions">
     <button class="go" id="go">Build my plan</button>
     <div class="msg" id="msg"></div>
@@ -94,21 +212,37 @@ const REPO = "https://github.com/dyabo/climbro";
 
 // ---- static UI strings (the survey itself is localized by Python) ----
 const UI = {
-  en:{ sub:"Answer a few questions and download your personalized climbing training tracker. Everything runs in your browser — nothing is uploaded.",
-       go:"Build my plan", building:"Building…", boot:"Loading the engine…",
+  en:{ sub:"Answer a few questions and get a personalized training workbook — a periodized cycle, a day-by-day schedule, and the analytics to steer it.",
+       go:"Build my plan", building:"Building your cycle…", boot:"Chalking up — loading the engine…",
        ready:"✓ Your plan is ready — check your downloads.", fix:"Please fix:", heads:"Heads up:", yes:"Yes", no:"No",
-       required:"Please fill the required fields (marked *).",
+       badges:["Runs <b>in your browser</b>", "<b>No</b> install, <b>no</b> account", "Your data <b>never leaves</b> this device", "<b>MIT</b> open source"],
+       sections:{ profile:["You","The basics the strength norms key off."],
+                  climbing:["Your climbing","Where you are now and where you're headed."],
+                  goal:["The goal","What we're peaking for, and by when."],
+                  weight:["Weight","Optional — a cut is planned into the early phases."],
+                  availability:["Schedule","How much you can actually train."],
+                  equipment:["Gear","What you can train on gates the session types."],
+                  options:["Extras","Optional sheets in the workbook."] },
        foot:`Open source (MIT) — <a href="${REPO}" target="_blank" rel="noopener">source code on GitHub</a>.
              Not medical or coaching advice (see the <a href="${REPO}/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">disclaimer</a>).
              Your answers stay on this device.` },
-  ru:{ sub:"Ответь на несколько вопросов и скачай персональный трекер тренировок. Всё считается прямо в браузере — ничего не загружается на сервер.",
-       go:"Собрать план", building:"Собираю…", boot:"Загружаю движок…",
+  ru:{ sub:"Ответь на несколько вопросов и получи персональную книгу тренировок — периодизированный цикл, расписание по дням и аналитику, чтобы им управлять.",
+       go:"Собрать план", building:"Собираю цикл…", boot:"Магнезим руки — загружаю движок…",
        ready:"✓ План готов — проверь загрузки.", fix:"Исправь, пожалуйста:", heads:"Обрати внимание:", yes:"Да", no:"Нет",
-       required:"Заполни обязательные поля (со звёздочкой *).",
+       badges:["Работает <b>в браузере</b>", "<b>Без</b> установки и аккаунта", "Данные <b>не покидают</b> устройство", "<b>MIT</b>, открытый код"],
+       sections:{ profile:["О тебе","База, от которой считаются нормы силы."],
+                  climbing:["Твоё лазание","Где ты сейчас и куда идёшь."],
+                  goal:["Цель","К чему подводимся и к какому сроку."],
+                  weight:["Вес","Необязательно — сушка встроится в ранние фазы."],
+                  availability:["Расписание","Сколько реально можешь тренироваться."],
+                  equipment:["Снаряжение","От доступного инвентаря зависят типы сессий."],
+                  options:["Дополнительно","Необязательные листы в книге."] },
        foot:`Открытый исходный код (MIT) — <a href="${REPO}" target="_blank" rel="noopener">исходники на GitHub</a>.
              Не является медицинской или тренерской рекомендацией (см. <a href="${REPO}/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">дисклеймер</a>).
              Твои ответы остаются на этом устройстве.` },
 };
+// order of the "pitches"; matches the config sections
+const SECTION_ORDER = ["profile","climbing","goal","weight","availability","equipment","options"];
 // booleans that make sense pre-checked
 const BOOL_DEFAULT = {"equipment.has_fingerboard":true,"equipment.has_gym":true,"options.include_nutrition":true};
 
@@ -157,66 +291,85 @@ function survey(){
   return js;
 }
 
+function controlFor(f, t){
+  const val = answers[f.key];
+  if(f.kind==="choice"){
+    const opts = [`<option value="">—</option>`].concat(
+      f.choices.map(c=>`<option value="${escapeHtml(c.value)}" ${val===c.value?"selected":""}>${escapeHtml(c.label)}</option>`));
+    return `<select data-k="${f.key}">${opts.join("")}</select>`;
+  }
+  if(f.kind==="bool"){
+    return `<div class="boolrow"><label><input type="checkbox" data-k="${f.key}" ${val===true?"checked":""}> <span>${t.yes}</span></label></div>`;
+  }
+  if(f.kind==="weekdays"){
+    const set = new Set(Array.isArray(val)?val:[]);
+    return `<div class="days">`+ f.choices.map(c=>
+      `<label><input type="checkbox" data-wd="${f.key}" value="${c.value}" ${set.has(c.value)?"checked":""}> ${escapeHtml(c.label)}</label>`).join("") + `</div>`;
+  }
+  const type = f.kind==="date" ? "date" : (f.kind==="int"||f.kind==="float" ? "number" : "text");
+  const step = f.kind==="float" ? ` step="0.1"` : "";
+  return `<input type="${type}"${step} data-k="${f.key}" value="${val!=null&&typeof val!=="object"?escapeHtml(String(val)):""}">`;
+}
+
 function render(){
   const t = UI[lang];
   $("#sub").textContent = t.sub;
   $("#go").textContent = t.go;
   $("#bootmsg").textContent = t.boot;
   $("#foot").innerHTML = t.foot;
-  const form = $("#form"); form.innerHTML="";
+  $("#badges").innerHTML = t.badges.map(b=>`<span class="badge">${b}</span>`).join("");
+
+  // group the flat survey into "pitches" by config section (profile.*, climbing.* …)
+  const bySection = new Map();
   for(const f of survey()){
-    const row = document.createElement("div");
-    row.className="field"; row.dataset.key=f.key;
-    if(f.depends_on) row.dataset.depends=f.depends_on;
-    const star = f.optional ? "" : `<span class="req">*</span>`;
-    const ex = f.example ? ` <span class="ex">— ${t_egLabel()} ${escapeHtml(f.example)}</span>` : "";
-    let control="";
-    const val = answers[f.key];
-    if(f.kind==="choice"){
-      const opts = [`<option value="">—</option>`].concat(
-        f.choices.map(c=>`<option value="${escapeHtml(c.value)}" ${val===c.value?"selected":""}>${escapeHtml(c.label)}</option>`));
-      control = `<select data-k="${f.key}">${opts.join("")}</select>`;
-    } else if(f.kind==="bool"){
-      const on = val===true;
-      control = `<div class="boolrow"><label><input type="checkbox" data-k="${f.key}" ${on?"checked":""}> <span>${t.yes}</span></label></div>`;
-    } else if(f.kind==="weekdays"){
-      const set = new Set(Array.isArray(val)?val:[]);
-      control = `<div class="days">`+ f.choices.map(c=>
-        `<label><input type="checkbox" data-wd="${f.key}" value="${c.value}" ${set.has(c.value)?"checked":""}> ${escapeHtml(c.label)}</label>`).join("") + `</div>`;
-    } else {
-      const type = f.kind==="date" ? "date" : (f.kind==="int"||f.kind==="float" ? "number" : "text");
-      const step = f.kind==="float" ? ` step="0.1"` : "";
-      control = `<input type="${type}"${step} data-k="${f.key}" value="${val!=null&&typeof val!=="object"?escapeHtml(String(val)):""}">`;
-    }
-    row.innerHTML = `<label class="q">${escapeHtml(f.prompt)}${star}${ex}</label>${control}`;
-    form.appendChild(row);
+    const sec = f.key.split(".")[0];
+    if(!bySection.has(sec)) bySection.set(sec, []);
+    bySection.get(sec).push(f);
   }
+  const form = $("#form"); form.innerHTML="";
+  let n = 0;
+  for(const sec of SECTION_ORDER){
+    const fields = bySection.get(sec);
+    if(!fields || !fields.length) continue;
+    n++;
+    const [title, hint] = t.sections[sec] || [sec, ""];
+    const box = document.createElement("section");
+    box.className = "pitch"; box.dataset.section = sec;
+    box.innerHTML = `<span class="num" aria-hidden="true">${n}</span>`
+      + `<h2>${escapeHtml(title)}</h2><p class="ph">${escapeHtml(hint)}</p>`
+      + fields.map(f=>{
+          const star = f.optional ? "" : `<span class="req">*</span>`;
+          const ex = f.example ? ` <span class="ex">— ${egLabel()} ${escapeHtml(f.example)}</span>` : "";
+          const dep = f.depends_on ? ` data-depends="${f.depends_on}"` : "";
+          return `<div class="field" data-key="${f.key}"${dep}>`
+               + `<label class="q">${escapeHtml(f.prompt)}${star}${ex}</label>${controlFor(f,t)}</div>`;
+        }).join("");
+    form.appendChild(box);
+  }
+
   // wire inputs
   form.querySelectorAll("[data-k]").forEach(el=>{
     el.addEventListener("change",()=>{
-      const k=el.dataset.k;
-      if(el.type==="checkbox") answers[k]=el.checked;
-      else answers[k]=el.value;
+      answers[el.dataset.k] = (el.type==="checkbox") ? el.checked : el.value;
       updateDeps();
     });
   });
   form.querySelectorAll("[data-wd]").forEach(el=>{
     el.addEventListener("change",()=>{
       const k=el.dataset.wd;
-      const picked=[...form.querySelectorAll(`[data-wd="${k}"]:checked`)].map(x=>x.value);
-      answers[k]=picked;
+      answers[k]=[...form.querySelectorAll(`[data-wd="${k}"]:checked`)].map(x=>x.value);
     });
   });
   updateDeps();
 }
-function t_egLabel(){ return lang==="ru" ? "напр." : "e.g."; }
+
+function egLabel(){ return lang==="ru" ? "напр." : "e.g."; }
 function updateDeps(){
   document.querySelectorAll(".field[data-depends]").forEach(row=>{
-    const dep=row.dataset.depends;
-    row.classList.toggle("hidden", !answers[dep]);
+    row.classList.toggle("hidden", !answers[row.dataset.depends]);
   });
 }
-function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 async function submit(){
   const t = UI[lang], go=$("#go"), msg=$("#msg");
@@ -257,8 +410,14 @@ $("#lang").addEventListener("click",e=>{
   render();
 });
 $("#go").addEventListener("click",submit);
-$("#foot").innerHTML = UI[lang].foot;   // show the source link immediately, before the engine loads
+
+// paint the localized chrome immediately, before the engine finishes loading
+$("#sub").textContent = UI[lang].sub;
+$("#bootmsg").textContent = UI[lang].boot;
+$("#foot").innerHTML = UI[lang].foot;
+$("#badges").innerHTML = UI[lang].badges.map(b=>`<span class="badge">${b}</span>`).join("");
 $("#repo").href = REPO;
+
 boot().catch(e=>{ console.error("boot failed:",e); $("#bootmsg").textContent =
   (lang==="ru" ? "Не удалось загрузить движок — обнови страницу." : "Couldn't load the engine — please refresh."); });
 </script>
