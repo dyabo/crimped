@@ -26,6 +26,19 @@ def _lastne(col: str, wr1: int, wr2: int) -> str:
     return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
 
 
+def _lastact(col: str, wr1: int, wr2: int) -> str:
+    """Value of `col` at the last week with ANY activity — a weight check-in (E)
+    OR logged sessions (P).
+
+    Training KPIs must not hang off the weight column alone: skipping a single
+    weigh-in would otherwise freeze the dashboard on an older week and could show
+    a green status while a later week logged finger pain or a load spike.
+    """
+    pos = (f'SUMPRODUCT(MAX(((Week!$E${wr1}:$E${wr2}<>"")+(Week!$P${wr1}:$P${wr2}>0)>0)'
+           f'*ROW(Week!$E${wr1}:$E${wr2})))-{wr1-1}')
+    return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
+
+
 def _phase_today(plan: Plan, wr1: int, wr2: int) -> str:
     """Phase by calendar date (clamped to the plan), independent of check-ins."""
     d = plan.cfg.goal.start_date
@@ -70,12 +83,12 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         ("fingers", t("Fingers %BW"), f'=IFERROR({_lastne("T",wr1,wr2)},"—")', "0.0%", t("(bw+hang)/bw")),
         ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
         ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
-        ("load", t("Week load (sRPE)"), f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
+        ("load", t("Week load (sRPE)"), f'=IFERROR({_lastact("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
         ("acwr", t("ACWR (overload risk)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("0.8–1.3 ok · >1.5 risky")),
-        ("status", t("Week status"), f'=IFERROR({_lastw("X",wr1,wr2)},"—")', "@", t("Composite traffic light")),
+        ("status", t("Week status"), f'=IFERROR({_lastact("X",wr1,wr2)},"—")', "@", t("Composite traffic light")),
         ("weeks", t("Weeks logged"), f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", t("Check-ins so far")),
         ("sessions", t("Sessions logged"), f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", t("Journal rows")),
-        ("completion", t("Week completion"), f'=IFERROR({_lastw("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
+        ("completion", t("Week completion"), f'=IFERROR({_lastact("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
         ("injuries", t("Active injuries"), f'={inj}', "0", t("Active + rehab (see Injuries)")),
     ]
     r = 4
@@ -109,15 +122,17 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
     r += 1
     h2(ws, r, 1, 4, t("Advisor")); ws.row_dimensions[r].height = 20
     r += 1
-    cw = _lastw("E", wr1, wr2)
+    cw = _lastw("E", wr1, wr2)          # weight KPIs stay anchored on the weigh-in
     g = _lastw("G", wr1, wr2)
     tt, uu, ss = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2), _lastne("S", wr1, wr2)
-    ww, yy, zz, ab, xx = (_lastw("W", wr1, wr2), _lastw("Y", wr1, wr2), _lastw("Z", wr1, wr2),
-                          _lastw("AB", wr1, wr2), _lastw("X", wr1, wr2))
+    # pain / recovery / completion / status follow the last ACTIVE week, so a missed
+    # weigh-in can't hide a red week behind a stale green one
+    ww, yy, zz, ab, xx = (_lastact("W", wr1, wr2), _lastact("Y", wr1, wr2), _lastact("Z", wr1, wr2),
+                          _lastact("AB", wr1, wr2), _lastact("X", wr1, wr2))
     advice = []
     if target_bw is not None:
         advice.append(
-            f'=IFERROR({q("Weight: down ")}&TEXT({start_bw}-{cw},"0.0")&{q(" of ")}&TEXT({start_bw}-{target_bw},"0.0")&{q(" kg, ")}&TEXT({cw}-{target_bw},"0.0")&{q(" to go. ")}'
+            f'=IFERROR({q("Weight: down ")}&TEXT({start_bw}-{cw},"0.0")&{q(" of ")}&TEXT({start_bw}-{target_bw},"0.0")&{q(" {unit}, ", unit=unit)}&TEXT({cw}-{target_bw},"0.0")&{q(" to go. ")}'
             f'&IF({g}>1,{q("Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.")},'
             f'IF({g}<-1,{q("Faster than planned — raise calories; aim {rate} to keep strength.", rate=rate_txt)},{q("On the planned curve.")})),{q("Weight: enter a bodyweight in Week.")})'
         )

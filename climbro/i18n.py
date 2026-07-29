@@ -318,7 +318,7 @@ _RU: dict[str, str] = {
     "-0.5 kg/wk": "-0.5 кг/нед", "-1.1 lb/wk": "-1.1 фунт/нед",
     "Weight: down ": "Вес: минус ",
     " of ": " из ",
-    " kg, ": " кг, ",
+    " {unit}, ": " {unit}, ",   # unit token is already localized by the caller
     " to go. ": " осталось. ",
     "Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.":
         "Отстаёшь от плановой кривой — добавь ~100–150 ккал дефицита или 1 сессию Зоны 2.",
