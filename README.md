@@ -100,6 +100,12 @@ band, not a verdict.
 Contributions are welcome — by submitting a change you agree it is provided under the
 project's MIT license (inbound = outbound). No CLA required.
 
+## Support
+
+climbro is free and always will be. If it helped your training, you can
+[**☕ buy me a coffee**](https://buymeacoffee.com/dyabo) — entirely optional, and it
+keeps the project moving.
+
 ## License
 
 [MIT](LICENSE). Do whatever you like; keep the copyright notice.

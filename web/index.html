@@ -142,6 +142,10 @@
 
   footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:28px;line-height:1.7}
   footer a{color:var(--alpine);text-decoration-color:color-mix(in srgb,var(--alpine) 45%, transparent)}
+  footer a.coffee{display:inline-block;margin-top:12px;color:var(--glow);text-decoration:none;font-weight:700;
+    border:1px solid color-mix(in srgb,var(--glow) 45%, transparent);border-radius:999px;padding:7px 15px;
+    background:color-mix(in srgb,var(--glow) 10%, transparent);transition:background .15s,transform .15s}
+  footer a.coffee:hover{background:color-mix(in srgb,var(--glow) 20%, transparent);transform:translateY(-1px)}
   .hidden{display:none !important}
 
   @media (max-width:560px){
@@ -209,6 +213,7 @@
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
 
 const REPO = "https://github.com/dyabo/climbro";
+const COFFEE = "https://buymeacoffee.com/dyabo";
 
 // ---- static UI strings (the survey itself is localized by Python) ----
 const UI = {
@@ -225,7 +230,8 @@ const UI = {
                   options:["Extras","Optional sheets in the workbook."] },
        foot:`Open source (MIT) — <a href="${REPO}" target="_blank" rel="noopener">source code on GitHub</a>.
              Not medical or coaching advice (see the <a href="${REPO}/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">disclaimer</a>).
-             Your answers stay on this device.` },
+             Your answers stay on this device.
+             <br><a class="coffee" href="${COFFEE}" target="_blank" rel="noopener">☕ Buy me a coffee</a>` },
   ru:{ sub:"Ответь на несколько вопросов и получи персональную книгу тренировок — периодизированный цикл, расписание по дням и аналитику, чтобы им управлять.",
        go:"Собрать план", building:"Собираю цикл…", boot:"Магнезим руки — загружаю движок…",
        ready:"✓ План готов — проверь загрузки.", fix:"Исправь, пожалуйста:", heads:"Обрати внимание:", yes:"Да", no:"Нет",
@@ -239,7 +245,8 @@ const UI = {
                   options:["Дополнительно","Необязательные листы в книге."] },
        foot:`Открытый исходный код (MIT) — <a href="${REPO}" target="_blank" rel="noopener">исходники на GitHub</a>.
              Не является медицинской или тренерской рекомендацией (см. <a href="${REPO}/blob/main/DISCLAIMER.md" target="_blank" rel="noopener">дисклеймер</a>).
-             Твои ответы остаются на этом устройстве.` },
+             Твои ответы остаются на этом устройстве.
+             <br><a class="coffee" href="${COFFEE}" target="_blank" rel="noopener">☕ Купить мне кофе</a>` },
 };
 // order of the "pitches"; matches the config sections
 const SECTION_ORDER = ["profile","climbing","goal","weight","availability","equipment","options"];
