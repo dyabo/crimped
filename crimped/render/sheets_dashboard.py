@@ -99,8 +99,11 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
         ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
         ("load", t("Week load (sRPE)"), f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
-        ("acwr", t("Load ramp (vs 4-wk avg)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("~1.0 steady · high = ramped fast (not a risk score)")),
-        ("monotony", t("Monotony"), f'=IFERROR({_lastne("AC",wr1,wr2)},"—")', "0.00", t(">2 = every day alike; pair with load")),
+        # ramp and monotony are WHOLE-WEEK aggregates: taken from the week in progress
+        # they describe a half-finished week and read misleadingly low, so they follow
+        # the completed week like load and status do.
+        ("acwr", t("Load ramp (vs 4-wk avg)"), f'=IFERROR({_lastw("S",wr1,wr2)},"—")', "0.00", t("~1.0 steady · high = ramped fast (not a risk score)")),
+        ("monotony", t("Monotony"), f'=IFERROR({_lastw("AC",wr1,wr2)},"—")', "0.00", t(">2 = every day alike; pair with load")),
         # pain overrides the completed-week status: a mid-week 2+ must not wait for the check-in
         ("status", t("Week status"),
          f'=IFERROR(IF({_since_checkin("W",wr1,wr2)}>=2,"{t("🔴 Finger pain")}",{_lastw("X",wr1,wr2)}),"—")',
@@ -145,7 +148,11 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
     r += 1
     cw = _lastw("E", wr1, wr2)          # weight KPIs stay anchored on the weigh-in
     g = _lastw("G", wr1, wr2)
-    tt, uu, ss = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2), _lastne("S", wr1, wr2)
+    # fingers / gap-to-norm stay on their own column: they are sparse measurements
+    # (you don't max-hang every week) and the latest reading is the right one to show.
+    # The ramp is a weekly aggregate, so it follows the completed week instead.
+    tt, uu = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2)
+    ss = _lastw("S", wr1, wr2)
     # recovery / completion / status describe the last COMPLETED week (the one with a
     # check-in). Pain is the exception: it scans from that week onward so anything
     # logged in the week still in progress surfaces immediately.
@@ -167,9 +174,9 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         f'=IFERROR({q("Fingers: ")}&TEXT({tt},"0.0%")&{q(" BW; to the V{v} norm (", v=tgt_v)}&TEXT({norm},"0%")&{q(") ")}'
         f'&IF({uu}<=0,{q("— reached. Now convert it on the wall (technique, limit).")},'
         f'{q("need ")}&TEXT({uu}*100,"0.0")&{q(" pts (~")}&TEXT({uu}*{cw},"0.0")&{q(" {unit}). Keep 2 finger sessions/wk, add load slowly.", unit=unit)}),{q("Fingers: log a max hang in Journal.")})',
-        f'=IFERROR({q("Fatigue: ACWR ")}&TEXT({ss},"0.00")&{q(". ")}'
+        f'=IFERROR({q("Load ramp: ")}&TEXT({ss},"0.00")&{q(" vs your 4-week average. ")}'
         f'&IF({ss}>1.5,{q("Sharp jump — next week drop 1 power-endurance/volume session and add a rest day.")},'
-        f'IF({ss}<0.8,{q("Low — you can add 1 volume/technique session.")},{q("In the optimal band, hold steady.")})),{q("Fatigue: ACWR builds after ~2-3 logged weeks.")})',
+        f'IF({ss}<0.8,{q("Lighter than your recent average — room to add 1 volume/technique session.")},{q("Close to your recent average — hold steady.")})),{q("Load ramp: needs ~2-3 logged weeks before it means anything.")})',
         f'=IF({inj}>0,{q("⚠ Active injuries: ")}&TEXT({inj},"0")&{q(" — follow the rehab in Injuries, don\'t load the area, swap the affected sessions.")},{q("Injuries: none active.")})',
         f'=IFERROR(IF({ww}>=2,{q("Finger pain ")}&TEXT({ww},"0")&{q("/3 — rest fingers, switch to legs/cardio/mobility, add an Injuries row.")},'
         f'IF(OR(AND({yy}<>"",{yy}<=2),AND({zz}<>"",{zz}>=8)),{q("Sleep/stress are down — swap the next limit day for a technique day, prioritise sleep.")},{q("Recovery: sleep and stress look fine.")})),{q("Log pain, sleep and stress to track recovery.")})',

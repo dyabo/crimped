@@ -354,6 +354,14 @@ _RU: dict[str, str] = {
         " {unit}). Держи 2 пальцевые сессии/нед, добавляй вес медленно.",
     "Fingers: log a max hang in Journal.": "Пальцы: запиши макс. вис в «Дневник».",
     "Fatigue: ACWR ": "Усталость: ACWR ",
+    "Load ramp: ": "Скачок нагрузки: ",
+    " vs your 4-week average. ": " к твоему среднему за 4 недели. ",
+    "Lighter than your recent average — room to add 1 volume/technique session.":
+        "Легче твоего недавнего среднего — есть место добавить 1 сессию объёма/техники.",
+    "Close to your recent average — hold steady.":
+        "Близко к твоему недавнему среднему — держи темп.",
+    "Load ramp: needs ~2-3 logged weeks before it means anything.":
+        "Скачок нагрузки: нужно ~2–3 записанные недели, чтобы он что-то значил.",
     ". ": ". ",
     "Sharp jump — next week drop 1 power-endurance/volume session and add a rest day.":
         "Резкий скачок — на след. неделе убери 1 сессию силовой выносливости/объёма и добавь день отдыха.",
