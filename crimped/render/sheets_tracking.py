@@ -113,7 +113,11 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
     units = plan.cfg.profile.units
     # weekly-rate thresholds in the user's display units (internally defined in kg)
     fast_thr = 0.7 if units == Units.KG else 1.5     # 'cutting too fast'
-    gain_thr = 0.1 if units == Units.KG else 0.2     # 'gaining'
+    gain_thr = 0.1 if units == Units.KG else 0.2     # 'gaining' (pace label, sensitive)
+    # a status-worthy gain: past normal week-to-week water/glycogen noise. Only
+    # meaningful while a cut is running — if you're not cutting, gaining is not a fault.
+    gain_red = 0.5 if units == Units.KG else 1.1
+    cutting = plan.cfg.weight.enabled
     p_fast, p_gain, p_ok = t("fast"), t("gain"), t("ok")  # pace labels (also used in CF below)
 
     ws.merge_cells("A1:AB1"); h1(ws["A1"], t("Week — fill yellow; the rest computes"))
@@ -229,16 +233,21 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
             ws.cell(r, 32, f'=IF(OR(Q{r}=0,Q{r-1}=0),"",Q{r}/Q{r-1}-1)')
         ws.cell(r, 32).number_format = "+0%;-0%"; ws.cell(r, 32).alignment = Alignment("center", "center")
         # status (priority: pain > load > weight > recovery)
+        gain_branch = (f'IF(AND(H{r}<>"",H{r}>{gain_red}),"{t("🔴 Gaining, not cutting")}",'
+                       if cutting else "")
         ws.cell(r, 24,
             f'=IF(W{r}>=2,"{t("🔴 Finger pain")}",'
             f'IF(AND(S{r}<>"",S{r}>1.5),"{t("🔴 Load spike")}",'
             f'IF(AND(H{r}<>"",H{r}<-{fast_thr}),"{t("🔴 Cutting too fast")}",'
+            + gain_branch +
             f'IF(AND(K{r}<>"",K{r}<-5,M{r}<>"",M{r}>0),"{t("🟡 Fatigue (HRV↓)")}",'
             f'IF(AND(O{r}<>"",O{r}>=8),"{t("🟡 High fatigue")}",'
             f'IF(AND(Z{r}<>"",Z{r}>=8),"{t("🟡 High stress")}",'
             f'IF(AND(Y{r}<>"",Y{r}<=2),"{t("🟡 Poor sleep")}",'
             f'IF(AND(G{r}<>"",G{r}>1),"{t("🟡 Behind on weight")}",'
-            f'IF(P{r}=0,"—","{t("🟢 On track")}")))))))))')
+            # innermost IF closes itself; the rest close the 8 (or 9, with the gain
+            # branch) enclosing IFs
+            f'IF(P{r}=0,"—","{t("🟢 On track")}")' + ")" * (8 + (1 if cutting else 0)))
         td(ws.cell(r, 24))
         ws.row_dimensions[r].height = 26
 

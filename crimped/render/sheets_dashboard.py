@@ -26,17 +26,32 @@ def _lastne(col: str, wr1: int, wr2: int) -> str:
     return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
 
 
-def _lastact(col: str, wr1: int, wr2: int) -> str:
-    """Value of `col` at the last week with ANY activity — a weight check-in (E)
-    OR logged sessions (P).
+def _checkin_row(wr1: int, wr2: int) -> str:
+    """Absolute row of the last COMPLETED week = the last weekly check-in.
 
-    Training KPIs must not hang off the weight column alone: skipping a single
-    weigh-in would otherwise freeze the dashboard on an older week and could show
-    a green status while a later week logged finger pain or a load spike.
+    The intended workflow is: log sessions as the week runs, then fill the weekly
+    check-in once it ends. So the newest row that has sessions is usually the week
+    still IN PROGRESS — its weight/sleep/stress are not entered yet, which makes its
+    status meaningless (it can only ever come out green). "Last completed week"
+    therefore means the last week that has a check-in, not the last week touched.
     """
-    pos = (f'SUMPRODUCT(MAX(((Week!$E${wr1}:$E${wr2}<>"")+(Week!$P${wr1}:$P${wr2}>0)>0)'
-           f'*ROW(Week!$E${wr1}:$E${wr2})))-{wr1-1}')
-    return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
+    return f'SUMPRODUCT(MAX((Week!$E${wr1}:$E${wr2}<>"")*ROW(Week!$E${wr1}:$E${wr2})))'
+
+
+def _since_checkin(col: str, wr1: int, wr2: int, agg: str = "MAX") -> str:
+    """Aggregate `col` over the last completed week AND everything after it.
+
+    Used for signals that must not wait for a check-in to surface — finger pain
+    logged mid-week has to reach the dashboard on the day it is logged.
+    """
+    return (f'SUMPRODUCT({agg}((ROW(Week!${col}${wr1}:${col}${wr2})>={_checkin_row(wr1, wr2)})'
+            f'*Week!${col}${wr1}:${col}${wr2}))')
+
+
+def _inprogress(col: str, wr1: int, wr2: int, agg: str = "SUM") -> str:
+    """Aggregate `col` strictly AFTER the last check-in — i.e. the week in progress."""
+    return (f'SUMPRODUCT({agg}((ROW(Week!${col}${wr1}:${col}${wr2})>{_checkin_row(wr1, wr2)})'
+            f'*Week!${col}${wr1}:${col}${wr2}))')
 
 
 def _phase_today(plan: Plan, wr1: int, wr2: int) -> str:
@@ -83,13 +98,18 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         ("fingers", t("Fingers %BW"), f'=IFERROR({_lastne("T",wr1,wr2)},"—")', "0.0%", t("(bw+hang)/bw")),
         ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
         ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
-        ("load", t("Week load (sRPE)"), f'=IFERROR({_lastact("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
+        ("load", t("Week load (sRPE)"), f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
         ("acwr", t("Load ramp (vs 4-wk avg)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("~1.0 steady · high = ramped fast (not a risk score)")),
         ("monotony", t("Monotony"), f'=IFERROR({_lastne("AC",wr1,wr2)},"—")', "0.00", t(">2 = every day alike; pair with load")),
-        ("status", t("Week status"), f'=IFERROR({_lastact("X",wr1,wr2)},"—")', "@", t("Composite traffic light")),
+        # pain overrides the completed-week status: a mid-week 2+ must not wait for the check-in
+        ("status", t("Week status"),
+         f'=IFERROR(IF({_since_checkin("W",wr1,wr2)}>=2,"{t("🔴 Finger pain")}",{_lastw("X",wr1,wr2)}),"—")',
+         "@", t("Composite traffic light")),
+        ("inprog", t("This week so far"),
+         f'=IFERROR({_inprogress("P",wr1,wr2)},0)', "0", t("Sessions logged since the last check-in")),
         ("weeks", t("Weeks logged"), f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", t("Check-ins so far")),
         ("sessions", t("Sessions logged"), f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", t("Journal rows")),
-        ("completion", t("Week completion"), f'=IFERROR({_lastact("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
+        ("completion", t("Week completion"), f'=IFERROR({_lastw("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
         ("injuries", t("Active injuries"), f'={inj}', "0", t("Active + rehab (see Injuries)")),
     ]
     r = 4
@@ -126,16 +146,22 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
     cw = _lastw("E", wr1, wr2)          # weight KPIs stay anchored on the weigh-in
     g = _lastw("G", wr1, wr2)
     tt, uu, ss = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2), _lastne("S", wr1, wr2)
-    # pain / recovery / completion / status follow the last ACTIVE week, so a missed
-    # weigh-in can't hide a red week behind a stale green one
-    ww, yy, zz, ab, xx = (_lastact("W", wr1, wr2), _lastact("Y", wr1, wr2), _lastact("Z", wr1, wr2),
-                          _lastact("AB", wr1, wr2), _lastact("X", wr1, wr2))
+    # recovery / completion / status describe the last COMPLETED week (the one with a
+    # check-in). Pain is the exception: it scans from that week onward so anything
+    # logged in the week still in progress surfaces immediately.
+    yy, zz, ab, xx = (_lastw("Y", wr1, wr2), _lastw("Z", wr1, wr2),
+                      _lastw("AB", wr1, wr2), _lastw("X", wr1, wr2))
+    ww = _since_checkin("W", wr1, wr2)
     advice = []
     if target_bw is not None:
+        hh = _lastw("H", wr1, wr2)          # week-over-week change at the last check-in
+        gain_red = 0.5 if cfg.profile.units.value == "kg" else 1.1
         advice.append(
             f'=IFERROR({q("Weight: down ")}&TEXT({start_bw}-{cw},"0.0")&{q(" of ")}&TEXT({start_bw}-{target_bw},"0.0")&{q(" {unit}, ", unit=unit)}&TEXT({cw}-{target_bw},"0.0")&{q(" to go. ")}'
-            f'&IF({g}>1,{q("Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.")},'
-            f'IF({g}<-1,{q("Faster than planned — raise calories; aim {rate} to keep strength.", rate=rate_txt)},{q("On the planned curve.")})),{q("Weight: enter a bodyweight in Week.")})'
+            # a gain while cutting is the sharpest signal — say it before anything else
+            f'&IF(AND({hh}<>"",{hh}>{gain_red}),{q("You gained ")}&TEXT({hh},"0.0")&{q(" {unit} this week while cutting — check portions, alcohol and salt/water before changing the plan.", unit=unit)},'
+            f'IF({g}>1,{q("Behind the planned curve — add ~100-150 kcal deficit or 1 Zone-2 session.")},'
+            f'IF({g}<-1,{q("Faster than planned — raise calories; aim {rate} to keep strength.", rate=rate_txt)},{q("On the planned curve.")}))),{q("Weight: enter a bodyweight in Week.")})'
         )
     advice += [
         f'=IFERROR({q("Fingers: ")}&TEXT({tt},"0.0%")&{q(" BW; to the V{v} norm (", v=tgt_v)}&TEXT({norm},"0%")&{q(") ")}'

@@ -256,6 +256,7 @@ _RU: dict[str, str] = {
     "🔴 Finger pain": "🔴 Боль в пальцах",
     "🔴 Load spike": "🔴 Скачок нагрузки",
     "🔴 Cutting too fast": "🔴 Слишком быстрая сушка",
+    "🔴 Gaining, not cutting": "🔴 Набор вместо сушки",
     "🟡 Fatigue (HRV↓)": "🟡 Усталость (ВСР↓)",
     "🟡 High fatigue": "🟡 Высокая усталость",
     "🟡 High stress": "🟡 Высокий стресс",
@@ -322,6 +323,11 @@ _RU: dict[str, str] = {
     "Sessions logged": "Сессий записано", "Journal rows": "Строк в дневнике",
     "Week completion": "Выполнение недели", "Actual ÷ planned sessions": "Факт ÷ план сессий",
     "Active injuries": "Активные травмы", "Active + rehab (see Injuries)": "Активные + реабилитация (см. «Травмы»)",
+    "This week so far": "На этой неделе пока",
+    "Sessions logged since the last check-in": "Сессий записано после последней сверки",
+    "You gained ": "Ты набрал ",
+    " {unit} this week while cutting — check portions, alcohol and salt/water before changing the plan.":
+        " {unit} за неделю на сушке — проверь порции, алкоголь и соль/воду, прежде чем менять план.",
     "Fingers %BW": "Пальцы %ВТ",
 
     # ---- Dashboard: advisor (fragments concatenated into Excel formulas) ----
