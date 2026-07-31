@@ -84,7 +84,8 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
         ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
         ("load", t("Week load (sRPE)"), f'=IFERROR({_lastact("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
-        ("acwr", t("ACWR (overload risk)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("0.8–1.3 ok · >1.5 risky")),
+        ("acwr", t("Load ramp (vs 4-wk avg)"), f'=IFERROR({_lastne("S",wr1,wr2)},"—")', "0.00", t("~1.0 steady · high = ramped fast (not a risk score)")),
+        ("monotony", t("Monotony"), f'=IFERROR({_lastne("AC",wr1,wr2)},"—")', "0.00", t(">2 = every day alike; pair with load")),
         ("status", t("Week status"), f'=IFERROR({_lastact("X",wr1,wr2)},"—")', "@", t("Composite traffic light")),
         ("weeks", t("Weeks logged"), f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", t("Check-ins so far")),
         ("sessions", t("Sessions logged"), f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", t("Journal rows")),
@@ -215,7 +216,7 @@ def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
     line(t("Best grade / week (V)"), [22], "A18", g_min, g_max)
     line(t("Weekly load: acute vs chronic (sRPE)"), [17, 18], "K18", 0)
 
-    line(t("ACWR — overload risk"), [19], "A33", 0, 2)
+    line(t("Load ramp vs 4-week average"), [19], "A33", 0, 2.5)
     line(t("Sessions: planned vs done"), [27, 16], "K33", 0, s_max)
 
     line(t("Fatigue & stress (1-10)"), [15, 26], "A48", 0, 10)
@@ -226,7 +227,11 @@ def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
         hrv_cols = ([10] if m["hrv"] else []) + ([12] if m["resting_hr"] else [])
         line(t("HRV & resting HR"), hrv_cols, "K63")   # auto y-axis (device-dependent range)
 
-    note(ws.cell(80, 1),
-         t("Lines appear as Week fills in. Axes are pre-scaled to your plan's range; "
-           "keep ACWR in the 0.8–1.3 band and finger pain at 0."))
-    ws.merge_cells("A80:S80")
+    # Foster's pair: sameness of training, and load weighted by that sameness
+    line(t("Monotony (day-to-day sameness)"), [29], "A78", 0, 4)
+    line(t("Strain (load × monotony)"), [30], "K78", 0)
+
+    note(ws.cell(95, 1),
+         t("Lines appear as Week fills in. Axes are pre-scaled to your plan's range. The load ramp "
+           "and monotony describe what changed — they are not injury predictions; see the Glossary."))
+    ws.merge_cells("A95:S95")

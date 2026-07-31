@@ -170,7 +170,11 @@ def build_glossary(ws, plan: Plan) -> None:
         ("RPE", t("Subjective session hardness 1-10 (10 = max). You enter it after training.")),
         (t("sRPE load"), t("Duration × RPE. A simple measure of what a session 'cost'.")),
         (t("Weekly load"), t("Sum of session sRPE for the week. Total stress.")),
-        (t("ACWR"), t("Acute:chronic load = this week ÷ 4-week average. 0.8-1.3 = ok, >1.5 = a spike and injury risk.")),
+        (t("Load ramp (acute:chronic)"), t("This week's load ÷ the average of the 4 weeks before it (the current week is excluded, so the number isn't diluted by itself). Around 1.0 = steady; well above = you ramped up fast. Treat the bands as rough orientation, NOT injury prediction — see the note at the bottom.")),
+        (t("Monotony"), t("Foster's measure of day-to-day sameness: mean daily load ÷ its standard deviation across the week. High monotony (>2) means every day looks alike — no hard/easy contrast. It is the combination of high load AND high monotony that tracks with overreaching, not either alone.")),
+        (t("Strain"), t("Weekly load × monotony (Foster). Catches the case a load number alone misses: a big week done as seven identical days is more taxing than the same total with real rest days.")),
+        (t("EWMA load"), t("Exponentially weighted moving average of weekly load — recent weeks count more, older ones decay smoothly. A less jumpy view of your chronic load than a flat 4-week mean.")),
+        (t("Δ load %"), t("Plain week-over-week change in load. No model, no thresholds — just how much more or less you did than last week.")),
         (t("Relative strength (%BW)"), t("Strength relative to bodyweight. Losing weight raises it without new training.")),
         (t("Finger norm (V-target)"), t("Population guide (Lattice): the %BW max hang on a 20 mm edge that tends to match a grade. Wide spread.")),
         (t("Max hangs"), t("~7-10 s hang on an edge with added load, hard but clean (Eva Lopez method). Base finger strength.")),
@@ -195,6 +199,28 @@ def build_glossary(ws, plan: Plan) -> None:
             fill(ws.cell(r, 1), GREY); fill(ws.cell(r, 2), GREY)
         ws.row_dimensions[r].height = 30; r += 1
     ws.freeze_panes = "A4"
+
+    # ---- where these numbers come from, and what they can't do ----
+    r += 1
+    h2(ws, r, 1, 2, t("How much to trust these numbers")); ws.row_dimensions[r].height = 20
+    r += 1
+    for k, v in [
+        (t("What is well established"),
+         t("Session-RPE (minutes × RPE) as a measure of internal training load is validated and widely used (Foster et al. 2001). "
+           "Monotony and strain come from the same body of work. Finger strength as %BW correlates with climbing grade, though it "
+           "explains only about half the variance — which is why it is a target band here and never a verdict.")),
+        (t("What is contested"),
+         t("The acute:chronic ratio has been criticised heavily since 2019: the current week is usually counted inside its own "
+           "average (mathematical coupling, which manufactures correlation), the 0.8–1.3 'sweet spot' bands are largely arbitrary, "
+           "and the injury-prediction figure behind them was formally challenged in the literature. This workbook excludes the "
+           "current week from the chronic average to avoid the coupling, but the honest position is that the ramp number shows you "
+           "WHAT CHANGED — it does not predict injury.")),
+        (t("How to use them"),
+         t("Treat every number here as a prompt to look, not an instruction to obey. A ramp of 1.8 with fresh fingers and good sleep "
+           "may be fine; a ramp of 1.1 with sore fingers is not. Pain and how you actually feel outrank every metric on this sheet.")),
+    ]:
+        td(ws.cell(r, 1), k, bold=True); td(ws.cell(r, 2), v)
+        ws.row_dimensions[r].height = 62; r += 1
 
 
 # --------------------------------------------------------------------------- #

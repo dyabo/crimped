@@ -14,6 +14,7 @@ Formula idioms (proven cross-engine / Google Sheets safe):
 """
 
 from __future__ import annotations
+from datetime import date
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
@@ -85,8 +86,16 @@ def build_journal(ws, plan: Plan, jr1: int, jr2: int) -> None:
 # fixed column map (kept stable regardless of metric flags; unused metric cols greyed)
 #  1A Wk 2B Dates 3C Phase 4D Deload 5E Weight 6F PlanWt 7G dPlan 8H dWk 9I Pace
 # 10J HRV 11K HRV-base 12L RHR 13M RHR-base 14N Sleep h 15O Fatigue
-# 16P Sessions 17Q Load 18R Chronic 19S ACWR 20T Fingers%BW 21U ToTarget
+# 16P Sessions 17Q Load 18R Chronic 19S LoadRamp 20T Fingers%BW 21U ToTarget
 # 22V GradeV 23W MaxPain 24X Status 25Y SleepQ 26Z Stress 27AA PlanSes 28AB Done%
+# 29AC Monotony 30AD Strain 31AE EWMA 32AF dLoad%  33AG..39AM daily loads (hidden helpers)
+#
+# Load-ramp note: `Chronic` deliberately EXCLUDES the current week. The classic
+# acute:chronic ratio puts the current week inside its own denominator, which both
+# creates the mathematical coupling the literature criticises and compresses real
+# spikes (a doubled week reads 1.6 instead of 2.0; the coupled form caps at 4.0).
+MONO_C1 = 33        # first daily-load helper column (AG)
+
 def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
     t = translator(plan.cfg.language)
     ws.sheet_view.showGridLines = False
@@ -121,9 +130,11 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
 
     headers = [t("Wk"), t("Dates"), t("Phase"), t("Deload"), t("Weight"), t("Plan wt"), t("Δ plan"), t("Δ/wk"), t("Pace"),
                t("HRV"), t("HRV−base"), t("Rest HR"), t("RHR−base"), t("Sleep h"), t("Fatigue 1-10"),
-               t("Sessions"), t("Load"), t("Chronic"), t("ACWR"), t("Fingers %BW"), t("To target"),
-               t("Grade V"), t("Max pain"), t("Week status"), t("Sleep Q 1-5"), t("Stress 1-10"), t("Plan ses"), t("Done %")]
-    cw = [6, 13, 22, 8, 8, 9, 9, 8, 9, 7, 9, 9, 9, 7, 9, 7, 9, 9, 7, 10, 9, 8, 9, 24, 9, 9, 9, 8]
+               t("Sessions"), t("Load"), t("Chronic"), t("Load ramp"), t("Fingers %BW"), t("To target"),
+               t("Grade V"), t("Max pain"), t("Week status"), t("Sleep Q 1-5"), t("Stress 1-10"), t("Plan ses"), t("Done %"),
+               t("Monotony"), t("Strain"), t("EWMA load"), t("Δ load %")]
+    cw = [6, 13, 22, 8, 8, 9, 9, 8, 9, 7, 9, 9, 9, 7, 9, 7, 9, 9, 9, 10, 9, 8, 9, 24, 9, 9, 9, 8,
+          10, 10, 10, 9]
     widths(ws, {get_column_letter(i + 1): cw[i] for i in range(len(cw))})
     for i, htext in enumerate(headers, 1):
         th(ws.cell(4, i, htext))
@@ -172,12 +183,15 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
         # HRV / RHR deviations (blank if not tracked or no baseline)
         ws.cell(r, 11, f'=IF(OR(J{r}="",$B$2=""),"",J{r}-$B$2)'); ws.cell(r, 11).alignment = Alignment("center", "center")
         ws.cell(r, 13, f'=IF(OR(L{r}="",$D$2=""),"",L{r}-$D$2)'); ws.cell(r, 13).alignment = Alignment("center", "center")
-        # sessions / load / chronic / ACWR
+        # sessions / load / chronic / load ramp
         ws.cell(r, 16, f'=COUNTIFS({JB},A{r},{JD},">0")'); ws.cell(r, 16).alignment = Alignment("center", "center")
         ws.cell(r, 17, f'=SUMIFS({JF},{JB},A{r})'); ws.cell(r, 17).alignment = Alignment("center", "center")
-        lo = max(WR1, r - 3)
-        ws.cell(r, 18, f'=IF(Q{r}=0,"",AVERAGE(Q{lo}:Q{r}))'); ws.cell(r, 18).number_format = "0"; ws.cell(r, 18).alignment = Alignment("center", "center")
-        ws.cell(r, 19, f'=IF(OR(R{r}="",R{r}=0),"",Q{r}/R{r})'); ws.cell(r, 19).number_format = "0.00"; ws.cell(r, 19).alignment = Alignment("center", "center")
+        # chronic = the PRECEDING up-to-4 weeks, current week excluded (uncoupled)
+        if r > WR1:
+            lo = max(WR1, r - 4)
+            ws.cell(r, 18, f'=IF(COUNTIF(Q{lo}:Q{r-1},">0")=0,"",AVERAGEIF(Q{lo}:Q{r-1},">0"))')
+        ws.cell(r, 18).number_format = "0"; ws.cell(r, 18).alignment = Alignment("center", "center")
+        ws.cell(r, 19, f'=IF(OR(R{r}="",R{r}=0,Q{r}=0),"",Q{r}/R{r})'); ws.cell(r, 19).number_format = "0.00"; ws.cell(r, 19).alignment = Alignment("center", "center")
         # fingers %BW, gap to target, grade, pain
         ws.cell(r, 20, f'=IF(OR(E{r}="",COUNTIFS({JB},A{r},{JG},">0")=0),"",(E{r}+SUMPRODUCT(MAX(({JB}=A{r})*{JG})))/E{r})'); ws.cell(r, 20).number_format = "0.0%"; ws.cell(r, 20).alignment = Alignment("center", "center")
         ws.cell(r, 21, f'=IF(T{r}="","",{norm}-T{r})'); ws.cell(r, 21).number_format = "0.0%"; ws.cell(r, 21).alignment = Alignment("center", "center")
@@ -186,6 +200,34 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
         # plan sessions (constant from engine) + done %
         td(ws.cell(r, 27), wp.planned_session_count, center=True)
         ws.cell(r, 28, f'=IF(OR(P{r}=0,AA{r}=0,AA{r}=""),"",P{r}/AA{r})'); ws.cell(r, 28).number_format = "0%"; ws.cell(r, 28).alignment = Alignment("center", "center")
+
+        # ---- daily loads for this week (hidden helpers) -> Foster monotony/strain ----
+        # Foster (1998): monotony = mean(daily load) / SD(daily load) across the 7 days,
+        # counting rest days as 0. Strain = weekly load x monotony. Monotonous training at
+        # high load is the combination associated with overreaching.
+        d0 = date.fromordinal(plan.cfg.goal.start_date.toordinal() + (wp.week - 1) * 7)
+        for k in range(7):
+            day = date.fromordinal(d0.toordinal() + k)
+            c = ws.cell(r, MONO_C1 + k, f'=SUMIFS({JF},Journal!$A${jr1}:$A${jr2},DATE({day.year},{day.month},{day.day}))')
+            c.number_format = "0"
+        first_d = get_column_letter(MONO_C1)
+        last_d = get_column_letter(MONO_C1 + 6)
+        rng = f"{first_d}{r}:{last_d}{r}"
+        ws.cell(r, 29, f'=IF(Q{r}=0,"",IFERROR(AVERAGE({rng})/STDEV({rng}),""))')
+        ws.cell(r, 29).number_format = "0.00"; ws.cell(r, 29).alignment = Alignment("center", "center")
+        ws.cell(r, 30, f'=IF(OR(AC{r}="",Q{r}=0),"",Q{r}*AC{r})')
+        ws.cell(r, 30).number_format = "0"; ws.cell(r, 30).alignment = Alignment("center", "center")
+        # EWMA of weekly load (Williams/Murray 2017): lambda = 2/(N+1), N = 4 weeks
+        lam = 2 / (4 + 1)
+        if r == WR1:
+            ws.cell(r, 31, f'=IF(Q{r}=0,"",Q{r})')
+        else:
+            ws.cell(r, 31, f'=IF(AND(Q{r}=0,AE{r-1}=""),"",IF(AE{r-1}="",Q{r},{lam}*Q{r}+{1-lam}*AE{r-1}))')
+        ws.cell(r, 31).number_format = "0"; ws.cell(r, 31).alignment = Alignment("center", "center")
+        # plain week-over-week load change — no modelling, just what happened
+        if r > WR1:
+            ws.cell(r, 32, f'=IF(OR(Q{r}=0,Q{r-1}=0),"",Q{r}/Q{r-1}-1)')
+        ws.cell(r, 32).number_format = "+0%;-0%"; ws.cell(r, 32).alignment = Alignment("center", "center")
         # status (priority: pain > load > weight > recovery)
         ws.cell(r, 24,
             f'=IF(W{r}>=2,"{t("🔴 Finger pain")}",'
@@ -213,6 +255,14 @@ def build_week(ws, plan: Plan, jr1: int, jr2: int) -> None:
             FormulaRule(formula=[f'ISNUMBER(SEARCH("{emoji}",X{WR1}))'], fill=PatternFill("solid", fgColor=color)))
     ws.conditional_formatting.add(f"AB{WR1}:AB{last}", CellIsRule(operator="greaterThanOrEqual", formula=["1"], fill=PatternFill("solid", fgColor=GREEN)))
     ws.conditional_formatting.add(f"AB{WR1}:AB{last}", CellIsRule(operator="lessThan", formula=["0.7"], fill=PatternFill("solid", fgColor=ORANGE)))
+    # Foster: monotony >2 = little day-to-day variation (the pattern that pairs badly
+    # with high load). Flag it, and flag a big week-over-week jump.
+    ws.conditional_formatting.add(f"AC{WR1}:AC{last}", CellIsRule(operator="greaterThan", formula=["2"], fill=PatternFill("solid", fgColor=ORANGE)))
+    ws.conditional_formatting.add(f"AF{WR1}:AF{last}", CellIsRule(operator="greaterThan", formula=["0.5"], fill=PatternFill("solid", fgColor=ORANGE)))
+
+    # daily-load helpers are plumbing, not content — keep them out of the way
+    for k in range(7):
+        ws.column_dimensions[get_column_letter(MONO_C1 + k)].hidden = True
 
     return WR1, WR2  # for dashboard wiring
 
