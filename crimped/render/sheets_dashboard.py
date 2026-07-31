@@ -9,7 +9,8 @@ from __future__ import annotations
 from openpyxl.chart import LineChart, Reference
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Font, PatternFill, Alignment
-from .style import (h1, h2, th, td, note, fill, widths, FONT, GREY, RED, GREEN, ORANGE, TEAL)
+from .style import (h1, h2, th, td, note, fill, widths, FONT, GREY, RED, GREEN, ORANGE, TEAL,
+                    GLOW, ALPINE)
 from ..engine import Plan
 from ..i18n import translator
 
@@ -20,9 +21,16 @@ def _lastw(col: str, wr1: int, wr2: int) -> str:
     return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
 
 
-def _lastne(col: str, wr1: int, wr2: int) -> str:
-    """Last non-empty value of `col` itself (for columns that fill irregularly)."""
-    pos = f'SUMPRODUCT(MAX((Week!${col}${wr1}:${col}${wr2}<>"")*ROW(Week!${col}${wr1}:${col}${wr2})))-{wr1-1}'
+def _lastne_done(col: str, wr1: int, wr2: int) -> str:
+    """Last non-empty value of `col` at or before the last check-in.
+
+    For sparse measurements (fingers %BW, best grade): the latest reading, but only
+    from completed weeks — a hang done mid-week must not leak into the dashboard
+    before that week is closed out.
+    """
+    pos = (f'SUMPRODUCT(MAX((Week!${col}${wr1}:${col}${wr2}<>"")'
+           f'*(ROW(Week!${col}${wr1}:${col}${wr2})<={_checkin_row(wr1, wr2)})'
+           f'*ROW(Week!${col}${wr1}:${col}${wr2})))-{wr1-1}')
     return f'INDEX(Week!${col}${wr1}:${col}${wr2},{pos})'
 
 
@@ -45,12 +53,6 @@ def _since_checkin(col: str, wr1: int, wr2: int, agg: str = "MAX") -> str:
     logged mid-week has to reach the dashboard on the day it is logged.
     """
     return (f'SUMPRODUCT({agg}((ROW(Week!${col}${wr1}:${col}${wr2})>={_checkin_row(wr1, wr2)})'
-            f'*Week!${col}${wr1}:${col}${wr2}))')
-
-
-def _inprogress(col: str, wr1: int, wr2: int, agg: str = "SUM") -> str:
-    """Aggregate `col` strictly AFTER the last check-in — i.e. the week in progress."""
-    return (f'SUMPRODUCT({agg}((ROW(Week!${col}${wr1}:${col}${wr2})>{_checkin_row(wr1, wr2)})'
             f'*Week!${col}${wr1}:${col}${wr2}))')
 
 
@@ -95,21 +97,19 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
         kpi.append(("left_to_target", t("Left to target"), f'=IFERROR({_lastw("E",wr1,wr2)}-{target_bw},"—")', "0.0", t("≤0 = weight goal met")))
     kpi += [
         ("phase", t("Current phase"), _phase_today(plan, wr1, wr2), "@", t("Where you are in the plan (by date)")),
-        ("fingers", t("Fingers %BW"), f'=IFERROR({_lastne("T",wr1,wr2)},"—")', "0.0%", t("(bw+hang)/bw")),
-        ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
-        ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne("V",wr1,wr2)},"—")', "0", t("Max in a week")),
+        # EVERY metric below describes the last COMPLETED week (last check-in). Sparse
+        # measurements use their latest reading from a completed week; whole-week
+        # aggregates come straight off the check-in row. The single exception is the
+        # pain override inside Week status — safety must not wait for Sunday.
+        ("fingers", t("Fingers %BW"), f'=IFERROR({_lastne_done("T",wr1,wr2)},"—")', "0.0%", t("(bw+hang)/bw")),
+        ("to_norm", t("To V-target norm"), f'=IFERROR({_lastne_done("U",wr1,wr2)},"—")', "0.0%", t("≤0 = V{v} finger norm reached", v=tgt_v)),
+        ("best_grade", t("Best grade (wk)"), f'=IFERROR({_lastne_done("V",wr1,wr2)},"—")', "0", t("Max in a week")),
         ("load", t("Week load (sRPE)"), f'=IFERROR({_lastw("Q",wr1,wr2)},"—")', "0", t("Sum of min×RPE")),
-        # ramp and monotony are WHOLE-WEEK aggregates: taken from the week in progress
-        # they describe a half-finished week and read misleadingly low, so they follow
-        # the completed week like load and status do.
         ("acwr", t("Load ramp (vs 4-wk avg)"), f'=IFERROR({_lastw("S",wr1,wr2)},"—")', "0.00", t("~1.0 steady · high = ramped fast (not a risk score)")),
         ("monotony", t("Monotony"), f'=IFERROR({_lastw("AC",wr1,wr2)},"—")', "0.00", t(">2 = every day alike; pair with load")),
-        # pain overrides the completed-week status: a mid-week 2+ must not wait for the check-in
         ("status", t("Week status"),
          f'=IFERROR(IF({_since_checkin("W",wr1,wr2)}>=2,"{t("🔴 Finger pain")}",{_lastw("X",wr1,wr2)}),"—")',
          "@", t("Composite traffic light")),
-        ("inprog", t("This week so far"),
-         f'=IFERROR({_inprogress("P",wr1,wr2)},0)', "0", t("Sessions logged since the last check-in")),
         ("weeks", t("Weeks logged"), f'=COUNT(Week!$E${wr1}:$E${wr2})', "0", t("Check-ins so far")),
         ("sessions", t("Sessions logged"), f'=COUNTIFS(Journal!$D$5:$D${jr2},">0")', "0", t("Journal rows")),
         ("completion", t("Week completion"), f'=IFERROR({_lastw("AB",wr1,wr2)},"—")', "0%", t("Actual ÷ planned sessions")),
@@ -148,10 +148,8 @@ def build_dashboard(ws, plan: Plan, wr1: int, wr2: int, jr2: int = 10000) -> Non
     r += 1
     cw = _lastw("E", wr1, wr2)          # weight KPIs stay anchored on the weigh-in
     g = _lastw("G", wr1, wr2)
-    # fingers / gap-to-norm stay on their own column: they are sparse measurements
-    # (you don't max-hang every week) and the latest reading is the right one to show.
-    # The ramp is a weekly aggregate, so it follows the completed week instead.
-    tt, uu = _lastne("T", wr1, wr2), _lastne("U", wr1, wr2)
+    # fingers / gap-to-norm: latest reading, completed weeks only (sparse metric)
+    tt, uu = _lastne_done("T", wr1, wr2), _lastne_done("U", wr1, wr2)
     ss = _lastw("S", wr1, wr2)
     # recovery / completion / status describe the last COMPLETED week (the one with a
     # check-in). Pain is the exception: it scans from that week onward so anything
@@ -210,6 +208,11 @@ def build_charts(ws, plan: Plan, wr1: int, wr2: int) -> None:
         for c in cols:
             ref = Reference(week, min_col=c, max_col=c, min_row=hdr_row, max_row=wr2)
             ch.add_data(ref, titles_from_data=True)
+        # brand the series: alpenglow first, alpine second (matches the web palette)
+        for s, color in zip(ch.series, (GLOW, ALPINE)):
+            s.graphicalProperties.line.solidFill = color
+            s.graphicalProperties.line.width = 22000   # ~1.75 pt
+            s.smooth = False
         ch.set_categories(Reference(week, min_col=1, min_row=wr1, max_row=wr2))
         ch.x_axis.title = t("Week")
         ch.x_axis.delete = False; ch.y_axis.delete = False

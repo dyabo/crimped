@@ -10,18 +10,22 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 FONT = "Arial"
 
-# palette
-NAVY = "1F3A5F"
-BLUE = "2E6DA4"
-LBLUE = "D6E4F0"
-GREEN = "C8E6C9"
-YELLOW = "FFF2CC"
-ORANGE = "FCE4D6"
-RED = "F8CBAD"
-GREY = "F2F2F2"
-TEAL = "D7EEF0"
+# palette — mirrors the web app's light theme ("sandstone + alpenglow"):
+# ink #1E2732, alpine blue #2F7EA6, alpenglow orange #D9601F, warm greys.
+# Legacy names are kept so sheet modules don't churn; only the values changed.
+NAVY = "1E2732"      # ink — h1 banner
+BLUE = "2F7EA6"      # alpine — h2 / table headers
+LBLUE = "DCEAF2"     # light alpine — computed highlights
+GREEN = "D9E6CF"     # soft moss — good / deficit weeks
+YELLOW = "FCF0DC"    # warm chalk — user-input cells
+ORANGE = "F8E3D2"    # soft alpenglow — deloads / cautions
+RED = "F3CFC5"       # soft clay — red flags
+GREY = "EFECE6"      # sandstone — row banding
+TEAL = "FDEBDC"      # pale alpenglow — advisor rows (the "act on this" area)
+GLOW = "D9601F"      # alpenglow accent — chart lines, emphasis
+ALPINE = "2F7EA6"    # chart secondary series
 
-_thin = Side(style="thin", color="BFBFBF")
+_thin = Side(style="thin", color="DDD7CC")
 BORDER = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 
 
@@ -75,7 +79,7 @@ def inp(cell) -> None:
 def note(cell, text=None) -> None:
     if text is not None:
         cell.value = text
-    cell.font = Font(FONT, 10, italic=True, color="555555")
+    cell.font = Font(FONT, 10, italic=True, color="6B7A89")   # web --muted
     cell.alignment = Alignment("left", "top", wrap_text=True)
 
 
