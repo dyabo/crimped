@@ -1,5 +1,5 @@
 """
-climbro — periodization templates (v1)
+crimped — periodization templates (v1)
 
 Turns a validated Config into an ordered list of Phases with week spans.
 

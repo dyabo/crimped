@@ -1,5 +1,5 @@
 """
-climbro.render.sheets_schedule — phase schedule sheets (day-by-day).
+crimped.render.sheets_schedule — phase schedule sheets (day-by-day).
 
 Expands the engine's per-week session allocation into readable schedules,
 one sheet per phase group, in the format: day | session | what.

@@ -1,5 +1,5 @@
 """
-climbro.render.style — shared styling helpers for all sheets.
+crimped.render.style — shared styling helpers for all sheets.
 
 Centralizes the palette, fonts and cell helpers so every sheet looks consistent
 and the sheet modules stay focused on content/formulas.

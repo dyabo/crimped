@@ -1,5 +1,5 @@
 """
-climbro.web — a thin, framework-free adapter for a browser front-end.
+crimped.web — a thin, framework-free adapter for a browser front-end.
 
 The static web page (see /web) runs this module inside Pyodide:
   - `survey_for(lang)` returns the questionnaire, fully localized, as plain data
@@ -80,7 +80,7 @@ def generate(answers: dict, lang: str = "en") -> dict:
 
     plan = build_plan(cfg)
     data = render_bytes(plan)
-    name = (cfg.profile.name or "climbro").strip().replace(" ", "_") or "climbro"
+    name = (cfg.profile.name or "crimped").strip().replace(" ", "_") or "crimped"
     return {
         "ok": True,
         "errors": [],

@@ -1,5 +1,5 @@
 """
-climbro.render.sheets_plan — sheets generated directly from the engine Plan:
+crimped.render.sheets_plan — sheets generated directly from the engine Plan:
   - Setup   (echoes the config so the workbook is self-describing + drives some cells)
   - Cycle   (the macrocycle: phases, auto-dated, planned weight, deload flags)
 

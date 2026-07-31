@@ -1,6 +1,6 @@
 # Disclaimer
 
-climbro is a training-tracking and planning tool. It is **not** medical advice,
+crimped is a training-tracking and planning tool. It is **not** medical advice,
 not physiotherapy, and not a substitute for a qualified coach, doctor, or
 sports dietitian.
 

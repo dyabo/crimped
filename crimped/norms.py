@@ -1,5 +1,5 @@
 """
-climbro — finger-strength norms (v1)
+crimped — finger-strength norms (v1)
 
 Maps bouldering grade (internal V-int) -> expected finger strength, expressed as
 MAX 7-second two-hand hang on a 20 mm edge as a percentage of bodyweight (%BW),

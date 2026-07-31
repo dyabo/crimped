@@ -1,7 +1,7 @@
-# climbro — browser app
+# crimped — browser app
 
 A zero-install front door for non-technical users. It's a single static page that
-runs the **actual** climbro Python engine **in the browser** via
+runs the **actual** crimped Python engine **in the browser** via
 [Pyodide](https://pyodide.org) (Python compiled to WebAssembly). The user answers
 the survey, clicks a button, and the `.xlsx` is generated and downloaded locally —
 **nothing is uploaded**, so bodyweight/health answers never leave the device.
@@ -11,10 +11,10 @@ the survey, clicks a button, and the `.xlsx` is generated and downloaded locally
 - `index.html` — the whole app (form UI + glue). It:
   1. loads Pyodide from a CDN,
   2. installs the vendored `openpyxl` wheels (see `vendor/`),
-  3. fetches the pure-Python `climbro` package straight from this repo into
+  3. fetches the pure-Python `crimped` package straight from this repo into
      Pyodide's virtual filesystem,
-  4. calls `climbro.web.survey_for(lang)` to render the localized form and
-     `climbro.web.generate(answers, lang)` to build the workbook.
+  4. calls `crimped.web.survey_for(lang)` to render the localized form and
+     `crimped.web.generate(answers, lang)` to build the workbook.
 - The survey, validation, translations and the engine are the **same code** the
   CLI uses — the page adds no training logic of its own (single source of truth).
 
@@ -34,7 +34,7 @@ the package modules and wheels.
 
 Enable Pages for the repo, serving from the repository root (branch `main`, folder
 `/`). The app then lives at `https://<user>.github.io/<repo>/web/`. No backend, no
-build step, free hosting. Everything it needs (`../climbro/*.py` and `vendor/*.whl`)
+build step, free hosting. Everything it needs (`../crimped/*.py` and `vendor/*.whl`)
 is served as static files from the same origin.
 
 ## Vendored wheels

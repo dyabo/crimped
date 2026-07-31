@@ -1,4 +1,4 @@
-# climbro — example config (v1)
+# crimped — example config (v1)
 # This is what the CLI wizard produces, and what you can hand-edit instead.
 # Grades are written in your chosen display scale; internally they normalize to V.
 # Weights are in `units` (kg or lb). Everything else: see comments.

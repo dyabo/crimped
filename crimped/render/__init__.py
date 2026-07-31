@@ -1,5 +1,5 @@
 """
-climbro.render — turns an engine Plan into the .xlsx workbook.
+crimped.render — turns an engine Plan into the .xlsx workbook.
 
 v1 build order (this file orchestrates; sheet modules do the work):
   - sheets_plan:      Setup, Cycle                      [done]

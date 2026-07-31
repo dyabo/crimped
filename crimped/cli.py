@@ -1,14 +1,14 @@
 """
-climbro.cli — interactive survey wizard.
+crimped.cli — interactive survey wizard.
 
 Walks the SURVEY spec from schema.py, builds a config dict, validates it,
 generates the plan and writes the .xlsx. Also supports running straight from a
 YAML config (skip the questions).
 
 Usage:
-    python -m climbro                      # interactive wizard
-    python -m climbro --config my.yaml     # build from an existing config
-    python -m climbro --out plan.xlsx      # choose output path
+    python -m crimped                      # interactive wizard
+    python -m crimped --config my.yaml     # build from an existing config
+    python -m crimped --out plan.xlsx      # choose output path
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ def _set(d: dict, dotted: str, value) -> None:
 def run_wizard() -> dict:
     lang = _ask_language()               # language first — it drives every prompt below
     t = translator(lang)
-    print(t("\nclimbro — let's build your plan. Answer a few questions.\n"))
+    print(t("\ncrimped — let's build your plan. Answer a few questions.\n"))
     flat: dict = {}   # dotted answers, for grade-scale context
     cfg: dict = {"language": lang.value}
     for dotted, prompt, kind, opts in SURVEY:
@@ -133,9 +133,9 @@ def run_wizard() -> dict:
 # main
 # --------------------------------------------------------------------------- #
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="climbro", description="Generate a climbing training tracker.")
+    ap = argparse.ArgumentParser(prog="crimped", description="Generate a climbing training tracker.")
     ap.add_argument("--config", help="path to a YAML config (skips the wizard)")
-    ap.add_argument("--out", default="climbro_plan.xlsx", help="output .xlsx path")
+    ap.add_argument("--out", default="crimped_plan.xlsx", help="output .xlsx path")
     args = ap.parse_args(argv)
 
     if args.config:
@@ -160,8 +160,8 @@ def main(argv=None) -> int:
             print(f"  ✗ {e}")
         return 1
 
-    out = args.out if args.out else (cfg.options.output_path or "climbro_plan.xlsx")
-    if cfg.options.output_path and args.out == "climbro_plan.xlsx":
+    out = args.out if args.out else (cfg.options.output_path or "crimped_plan.xlsx")
+    if cfg.options.output_path and args.out == "crimped_plan.xlsx":
         out = cfg.options.output_path
 
     plan = build_plan(cfg)

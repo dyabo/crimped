@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Build a personalized climbing training plan — periodized cycle, day-by-day schedule, sRPE/ACWR analytics. Runs entirely in your browser.">
+<meta name="description" content="Build a personalized climbing training plan — periodized cycle, day-by-day schedule, sRPE load and training-load analytics. Runs entirely in your browser.">
 <meta name="theme-color" content="#0e1319">
-<title>climbro — build your climbing plan</title>
+<title>crimped — build your climbing plan</title>
 <style>
   /* ---------------------------------------------------------------
      Palette: alpine rock + chalk + alpenglow (sunset on granite)
@@ -184,8 +184,8 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <h1>climbro</h1><span class="v">v0.1</span>
-      <a class="gh" id="repo" href="https://github.com/dyabo/climbro" target="_blank" rel="noopener" title="Source on GitHub" aria-label="Source on GitHub">
+      <h1>crimped</h1><span class="v">v0.1</span>
+      <a class="gh" id="repo" href="https://github.com/dyabo/crimped" target="_blank" rel="noopener" title="Source on GitHub" aria-label="Source on GitHub">
         <svg viewBox="0 0 16 16" width="19" height="19" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
       </a>
     </div>
@@ -212,7 +212,7 @@
 <script type="module">
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
 
-const REPO = "https://github.com/dyabo/climbro";
+const REPO = "https://github.com/dyabo/crimped";
 const COFFEE = "https://buymeacoffee.com/dyabo";
 
 // ---- static UI strings (the survey itself is localized by Python) ----
@@ -253,11 +253,11 @@ const SECTION_ORDER = ["profile","climbing","goal","weight","availability","equi
 // booleans that make sense pre-checked
 const BOOL_DEFAULT = {"equipment.has_fingerboard":true,"equipment.has_gym":true,"options.include_nutrition":true};
 
-let pyodide, climbroWeb, lang="en";
+let pyodide, crimpedWeb, lang="en";
 const answers = {"profile.units":"kg","climbing.grade_scale":"V","equipment.wearable":"none", ...BOOL_DEFAULT};
 
 const $ = s=>document.querySelector(s);
-const PKG = new URL("../climbro/", location.href);
+const PKG = new URL("../crimped/", location.href);
 const MODULES = [
   "__init__.py","i18n.py","schema.py","norms.py","periodization.py","engine.py","web.py",
   "render/__init__.py","render/style.py","render/sheets_plan.py","render/sheets_schedule.py",
@@ -278,13 +278,13 @@ async function boot(){
   // fetch the pure-python package straight from the repo and mount it at an
   // absolute path (Emscripten FS resolves relative paths inconsistently).
   const ROOT = "/pkg";
-  pyodide.FS.mkdirTree(ROOT + "/climbro/render");
+  pyodide.FS.mkdirTree(ROOT + "/crimped/render");
   await Promise.all(MODULES.map(async m=>{
     const txt = await (await fetch(PKG+m)).text();
-    pyodide.FS.writeFile(ROOT + "/climbro/" + m, txt);
+    pyodide.FS.writeFile(ROOT + "/crimped/" + m, txt);
   }));
   pyodide.runPython(`import sys; sys.path.insert(0, '${ROOT}')`);
-  climbroWeb = pyodide.pyimport("climbro.web");
+  crimpedWeb = pyodide.pyimport("crimped.web");
   $("#boot").classList.add("hidden");
   $("#form").classList.remove("hidden");
   $("#actions").classList.remove("hidden");
@@ -292,7 +292,7 @@ async function boot(){
 }
 
 function survey(){
-  const py = climbroWeb.survey_for(lang);
+  const py = crimpedWeb.survey_for(lang);
   const js = py.toJs({dict_converter: Object.fromEntries});
   py.destroy();
   return js;
@@ -387,7 +387,7 @@ async function submit(){
   go.disabled=true; go.textContent=t.building;
   try{
     const pyAns=pyodide.toPy(payload);
-    const resPy=climbroWeb.generate(pyAns, lang);
+    const resPy=crimpedWeb.generate(pyAns, lang);
     const res=resPy.toJs({dict_converter:Object.fromEntries});
     pyAns.destroy(); resPy.destroy();
     if(!res.ok){

@@ -1,5 +1,5 @@
 """
-climbro — engine (v1)
+crimped — engine (v1)
 
 Assembles a concrete plan from a validated Config:
   Config -> Macrocycle (periodization) -> per-week session allocation

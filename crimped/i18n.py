@@ -1,5 +1,5 @@
 """
-climbro — internationalization (v1: English + Russian).
+crimped — internationalization (v1: English + Russian).
 
 Design:
 - Gettext-style: user-facing English literals stay in the code and are wrapped
@@ -26,8 +26,8 @@ class Language(str, Enum):
 # --------------------------------------------------------------------------- #
 _RU: dict[str, str] = {
     # ---- CLI wizard chrome ---------------------------------------------------
-    "\nclimbro — let's build your plan. Answer a few questions.\n":
-        "\nclimbro — соберём твой план. Ответь на несколько вопросов.\n",
+    "\ncrimped — let's build your plan. Answer a few questions.\n":
+        "\ncrimped — соберём твой план. Ответь на несколько вопросов.\n",
     " [optional, Enter to skip]": " [необязательно, Enter — пропустить]",
     "e.g. {ex}": "напр. {ex}",
     "  (required)": "  (обязательно)",
@@ -94,8 +94,8 @@ _RU: dict[str, str] = {
     "Target is {jump} V-grades above current — that is very ambitious for one cycle; consider a nearer target.":
         "Цель на {jump} категорий выше текущей — это очень амбициозно для одного цикла; рассмотри более близкую цель.",
     "goal.goal_date must be after start_date.": "goal.goal_date должна быть позже start_date.",
-    "Only {wks} weeks to the goal — climbro needs at least {min} for a sane cycle (otherwise the taper would land after your goal date). Move the date or pick a nearer goal.":
-        "До цели всего {wks} нед — climbro нужно минимум {min} для вменяемого цикла (иначе подводка окажется позже даты цели). Сдвинь дату или выбери более близкую цель.",
+    "Only {wks} weeks to the goal — crimped needs at least {min} for a sane cycle (otherwise the taper would land after your goal date). Move the date or pick a nearer goal.":
+        "До цели всего {wks} нед — crimped нужно минимум {min} для вменяемого цикла (иначе подводка окажется позже даты цели). Сдвинь дату или выбери более близкую цель.",
     "{wks} weeks is tight — phases will be heavily compressed.":
         "{wks} нед — впритык, фазы будут сильно сжаты.",
     "{wks} weeks is a long horizon; consider splitting into multiple cycles.":

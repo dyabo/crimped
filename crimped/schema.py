@@ -1,5 +1,5 @@
 """
-climbro — config schema (v1)
+crimped — config schema (v1)
 
 Single source of truth for everything the survey collects and the engine reads.
 
@@ -324,7 +324,7 @@ def validate(cfg: Config) -> tuple[list[str], list[str]]:
         wks = cfg.total_weeks
         if wks < MIN_CYCLE_WEEKS:
             errors.append(t(
-                "Only {wks} weeks to the goal — climbro needs at least {min} for a sane cycle "
+                "Only {wks} weeks to the goal — crimped needs at least {min} for a sane cycle "
                 "(otherwise the taper would land after your goal date). Move the date or pick a nearer goal.",
                 wks=wks, min=MIN_CYCLE_WEEKS))
         elif wks < 12:

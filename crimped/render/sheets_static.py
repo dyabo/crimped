@@ -1,5 +1,5 @@
 """
-climbro.render.sheets_static — Mobility, Nutrition, Recovery, Glossary.
+crimped.render.sheets_static — Mobility, Nutrition, Recovery, Glossary.
 
 Mobility and Nutrition are flag-gated by the config; Recovery and Glossary are
 always included. English, concise. Nutrition targets read the latest bodyweight

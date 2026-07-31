@@ -1,5 +1,5 @@
 """
-climbro.render.sheets_tracking — the analytics sheets (formula-driven):
+crimped.render.sheets_tracking — the analytics sheets (formula-driven):
   - Journal   (per-session log; sRPE load computed)
   - Week      (weekly check-in; pace, fingers %BW, ACWR, plan-vs-actual, status)
   - Injuries  (log + auto day-count + active flag)

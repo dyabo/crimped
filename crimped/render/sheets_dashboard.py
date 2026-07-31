@@ -1,5 +1,5 @@
 """
-climbro.render.sheets_dashboard — Dashboard (KPIs + advisor) and Charts.
+crimped.render.sheets_dashboard — Dashboard (KPIs + advisor) and Charts.
 
 Reads the Week sheet via "last value" idioms (Google-Sheets safe) and emits
 concrete-action advice. Metric lines adapt to whether a wearable is present.
